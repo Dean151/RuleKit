@@ -14,4 +14,7 @@ A TipKit style rules registering API that will run a custom Notification via Not
 
 ## Contribute
 You are encouraged to contribute to this repository, by opening issues, or pull requests for bug fixes, improvement requests, or support.
-Currently, adding, or improving documentation, adding some rules or options for more use cases would be a good start.
+Suggestions for contributing:
+-  Adding, or improving documentation
+-  Adding some automated tests 😜
+-  Adding some new rules or options for more use cases
