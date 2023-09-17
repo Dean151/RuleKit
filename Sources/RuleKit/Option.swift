@@ -77,7 +77,7 @@ public struct TriggerFrequencyOption: RuleOption {
         guard let earliestDateForNextRuleTrigger = Calendar.current.date(byAdding: frequency.component, value: 1, to: lastTrigger) else {
             return false
         }
-        if earliestDateForNextRuleTrigger > .now {
+        if earliestDateForNextRuleTrigger > Date() {
             // If we are before the earliest next trigger date, prevent trigger by returning true
             return true
         }

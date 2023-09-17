@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "RuleKit",
-    platforms: [.iOS(.v15), .watchOS(.v8), .tvOS(.v15),  .macOS(.v12)],
+    platforms: [.iOS(.v14), .watchOS(.v7), .tvOS(.v14),  .macOS(.v11)],
     products: [
         .library(name: "RuleKit", targets: ["RuleKit"]),
     ],

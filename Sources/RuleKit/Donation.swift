@@ -43,7 +43,7 @@ extension Event {
         }
 
         static var now: Donation {
-            .init(id: UUID(), appVersion: .current, date: .now)
+            .init(id: UUID(), appVersion: .current, date: Date())
         }
     }
 

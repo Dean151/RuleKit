@@ -93,7 +93,7 @@ public actor Store {
         if data == nil {
             try loadData()
         }
-        data?.lastTrigger[notification.rawValue] = .now
+        data?.lastTrigger[notification.rawValue] = Date()
         try saveData()
     }
 
