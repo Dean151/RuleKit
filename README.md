@@ -10,14 +10,14 @@ A TipKit style rules registering API that will run a custom Notification via Not
 
 Install using Swift Package Manager
 ```
-    dependencies: [
-        .package(url: "git@github.com:Dean151/RuleKit.git", from: "0.2.0"),
-    ],
-    targets: [
-        .target(name: "MyTarget", dependencies: [
-            .product(name: "RuleKit", package: "RuleKit"),
-        ]),
-    ]
+dependencies: [
+    .package(url: "git@github.com:Dean151/RuleKit.git", from: "0.2.0"),
+],
+targets: [
+    .target(name: "MyTarget", dependencies: [
+        .product(name: "RuleKit", package: "RuleKit"),
+    ]),
+]
 ```
 
 And import it:
@@ -130,6 +130,6 @@ await RuleKit.Event.appStarted.reset()
 ## Contribute
 You are encouraged to contribute to this repository, by opening issues, or pull requests for bug fixes, improvement requests, or support.
 Suggestions for contributing:
--  Adding, or improving documentation
+-  Improving documentation
 -  Adding some automated tests 😜
--  Adding some new rules or options for more use cases
+-  Adding some new rules, options or properties for more use cases
