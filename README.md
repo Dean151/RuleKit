@@ -1,6 +1,6 @@
 # RuleKit
 
-A TipKit style rules registering API that will run a custom Notification via NotificationCenter
+Define a subset of rules to trigger a foundation notification
 
 ## Requirements
 - Swift 5.8+ (Xcode 14.3+)
