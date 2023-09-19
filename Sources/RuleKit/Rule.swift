@@ -32,7 +32,7 @@ public protocol Rule {
 }
 
 extension Rule {
-    func firstOption<T: RuleOption>(ofType: T.Type) -> T? {
+    func firstOption<T: RuleKitOption>(ofType: T.Type) -> T? {
         (self as? RuleWithOptions)?.firstOption(ofType: T.self)
     }
 }
@@ -40,27 +40,27 @@ extension Rule {
 // MARK: Event rule
 
 public struct EventRule: Rule {
-    let event: Event
-    let condition: (DonatedEvent) -> Bool
+    let event: RuleKit.Event
+    let condition: (RuleKit.DonatedEvent) -> Bool
 
     public var isFulfilled: Bool {
         get async {
             let donations = await event.donations
-            if condition(DonatedEvent(event: event, donations: donations)) {
+            if condition(RuleKit.DonatedEvent(event: event, donations: donations)) {
                 return true
             }
             return false
         }
     }
 
-    init(event: Event, condition: @escaping (DonatedEvent) -> Bool) {
+    init(event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) {
         self.event = event
         self.condition = condition
     }
 }
 
 extension Rule where Self == EventRule {
-    public static func event(_ event: Event, condition: @escaping (DonatedEvent) -> Bool) -> Rule {
+    public static func event(_ event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) -> Rule {
         EventRule(event: event, condition: condition)
     }
 }
@@ -110,7 +110,7 @@ extension Rule where Self == AllOfRule {
 // MARK: Rule with options
 
 struct RuleWithOptions: Rule {
-    let options: [RuleOption]
+    let options: [RuleKitOption]
     let notification: Notification.Name
     let rule: Rule
 
@@ -123,7 +123,7 @@ struct RuleWithOptions: Rule {
         }
     }
 
-    func firstOption<T: RuleOption>(ofType: T.Type) -> T? {
+    func firstOption<T: RuleKitOption>(ofType: T.Type) -> T? {
         return options.first(where: { $0 is T }) as? T
     }
 }

@@ -27,16 +27,16 @@
 
 import Foundation
 
-extension Event {
+extension RuleKit.Event {
     /// Represent a specific donation for this event, allowing to know at what date and app version they were triggered at
     public struct Donation: Sendable, Codable {
         public let id: UUID
         /// The version of the main bundle when the donation was made
-        public let appVersion: Version?
+        public let appVersion: RuleKit.AppVersion?
         /// The date of when the donation was made
         public let date: Date
 
-        private init(id: UUID, appVersion: Version?, date: Date) {
+        private init(id: UUID, appVersion: RuleKit.AppVersion?, date: Date) {
             self.id = id
             self.appVersion = appVersion
             self.date = date

@@ -27,12 +27,12 @@
 
 import Foundation
 
-public protocol RuleOption {
+public protocol RuleKitOption {
     /// If this returns true, the rule will never be fulfilled, and the notification prevented
     /// Defaults to false
     func preventRuleFulfillment(for notification: Notification.Name) async -> Bool
 }
-extension RuleOption {
+extension RuleKitOption {
     public func preventRuleFulfillment(for notification: Notification.Name) async -> Bool {
         false
     }
@@ -40,7 +40,7 @@ extension RuleOption {
 
 // MARK: - TriggerFrequency
 
-public struct TriggerFrequencyOption: RuleOption {
+public struct TriggerFrequencyOption: RuleKitOption {
     public enum Frequency {
         case hourly
         case daily
@@ -85,24 +85,24 @@ public struct TriggerFrequencyOption: RuleOption {
     }
 }
 
-extension RuleOption where Self == TriggerFrequencyOption {
+extension RuleKitOption where Self == TriggerFrequencyOption {
     /// Throttle down the number of time the trigger is called.
     /// By default, each time an event is triggered and that the condition are true, the event will dispatch
-    public static func triggerFrequency(_ frequency: TriggerFrequencyOption.Frequency) -> RuleOption {
+    public static func triggerFrequency(_ frequency: TriggerFrequencyOption.Frequency) -> RuleKitOption {
         TriggerFrequencyOption(frequency: frequency)
     }
 }
 
 // MARK: - DispatchQueue
 
-public struct DispatchQueueOption: RuleOption {
+public struct DispatchQueueOption: RuleKitOption {
     let queue: DispatchQueue
 }
 
-extension RuleOption where Self == DispatchQueueOption {
+extension RuleKitOption where Self == DispatchQueueOption {
     /// Publish the notification on a specific dispatch queue.
     /// By default, notification will be sent on the main queue.
-    public static func dispatchQueue(_ queue: DispatchQueue) -> RuleOption {
+    public static func dispatchQueue(_ queue: DispatchQueue) -> RuleKitOption {
         DispatchQueueOption(queue: queue)
     }
 }

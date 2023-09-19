@@ -112,7 +112,7 @@ extension RuleKit {
         try RuleKit.internal.configure(storeLocation: storeLocation)
     }
 
-    public static func setRule(triggering notification: Notification.Name, options: [any RuleOption] = [], _ rule: Rule) {
+    public static func setRule(triggering notification: Notification.Name, options: [any RuleKitOption] = [], _ rule: Rule) {
         RuleKit.internal.rules[notification] = options.isEmpty ? rule : RuleWithOptions(options: options, notification: notification, rule: rule)
     }
 }
