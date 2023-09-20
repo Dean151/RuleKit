@@ -103,7 +103,7 @@ await RuleKit.Event.entityCreated.donate()
 - If required, reset an event donations to zero:
 ```swift
 // Asynchronously
-RuleKit.Event.appStarted.resetDonation()
+RuleKit.Event.appStarted.resetDonations()
 // Synchronously
 await RuleKit.Event.appStarted.reset()
 ```
