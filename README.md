@@ -2,6 +2,12 @@
 
 Define a subset of rules to trigger a foundation notification
 
+## Usecases
+- To open your Paywall from time to time
+- To prompt your user to add an App Store review
+- Watching and sending achievements to Game Center with GameKit
+- ...
+
 ## Requirements
 - Swift 5.8+ (Xcode 14.3+)
 - iOS 14+, iPadOS 14+, tvOS 14+, watchOS 7+, macOS 11+
@@ -120,12 +126,6 @@ await RuleKit.Event.appStarted.reset()
 ### Event.Donations properties available in the condition closure:
 - `count`: the number of times an event have been donated
 - `first` and `last`: the first and last retrieved donation (date + version)
-
-## Usecases
-- To open your Paywall from time to time
-- To prompt your user to add an App Store review
-- Watching and sending achievements to Game Center with GameKit
-- ...
 
 ## Contribute
 You are encouraged to contribute to this repository, by opening issues, or pull requests for bug fixes, improvement requests, or support.
