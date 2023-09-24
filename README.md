@@ -17,7 +17,7 @@ Define a subset of rules to trigger a foundation notification
 Install using Swift Package Manager
 ```
 dependencies: [
-    .package(url: "git@github.com:Dean151/RuleKit.git", from: "0.2.0"),
+    .package(url: "https://github.com/Dean151/RuleKit.git", from: "0.2.0"),
 ],
 targets: [
     .target(name: "MyTarget", dependencies: [
