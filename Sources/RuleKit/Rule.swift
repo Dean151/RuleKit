@@ -37,6 +37,12 @@ extension Rule {
     }
 }
 
+@resultBuilder struct RuleBuilder {
+    static func buildBlock(_ components: Rule...) -> [any Rule] {
+        components
+    }
+}
+
 // MARK: Event rule
 
 public struct EventRule: Rule {
@@ -81,8 +87,8 @@ public struct AnyOfRule: Rule {
 }
 
 extension Rule where Self == AnyOfRule {
-    public static func anyOf(_ rules: [any Rule]) -> Rule {
-        AnyOfRule(rules: rules)
+    public static func anyOf(@RuleBuilder _  rules: () -> [any Rule]) -> Rule {
+        AnyOfRule(rules: rules())
     }
 }
 
@@ -102,8 +108,8 @@ public struct AllOfRule: Rule {
 }
 
 extension Rule where Self == AllOfRule {
-    public static func allOf(_ rules: [any Rule]) -> Rule {
-        AllOfRule(rules: rules)
+    public static func allOf(@RuleBuilder _  rules: () -> [any Rule]) -> Rule {
+        AllOfRule(rules: rules())
     }
 }
 
