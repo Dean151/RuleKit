@@ -1,6 +1,6 @@
 # RuleKit
 
-TipKit style API to trigger foundation notification depending on events and condition.
+TipKit style API to trigger foundation notification based on events and condition.
 
 ## Usecases
 - To open your Paywall from time to time
