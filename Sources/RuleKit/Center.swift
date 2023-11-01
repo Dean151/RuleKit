@@ -118,8 +118,8 @@ extension RuleKit {
         RuleKit.internal.rules.append((rule, trigger))
     }
 
-    public static func setRule(triggering callback: @escaping @Sendable () -> Void, rawValue: String, options: [any RuleKitOption] = [], _ rule: Rule) {
-        let trigger = CallbackTrigger(rawValue: rawValue, callback: callback)
+    public static func setRule(triggering callback: @escaping @Sendable () -> Void, name: String, options: [any RuleKitOption] = [], _ rule: Rule) {
+        let trigger = CallbackTrigger(rawValue: name, callback: callback)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.rules.append((rule, trigger))
     }

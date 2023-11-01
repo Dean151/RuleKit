@@ -59,11 +59,6 @@ extension RuleKit {
             await RuleKit.internal.reset(self)
         }
 
-        @available(*, deprecated, renamed: "resetDonations")
-        public func resetDonation() {
-            resetDonations()
-        }
-
         public func resetDonations() {
             Task(priority: .utility) {
                 await reset()
