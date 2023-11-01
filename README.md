@@ -1,11 +1,12 @@
 # RuleKit
 
-TipKit style API to trigger foundation notification based on events and condition.
+TipKit style API to trigger an arbitrary closure, or a NSNotification based on events and condition.
 
 ## Usecases
 - To open your Paywall from time to time
 - To prompt your user to add an App Store review
 - Watching and sending achievements to Game Center with GameKit
+- Show a shortcut available for an action that is often performed by a user
 - ...
 
 ## Requirements
@@ -31,9 +32,10 @@ And import it:
 import RuleKit
 ```
 
+
 ## How to use?
 
-RuleKit is about one thing: invoking a foundation notification when a set of rules are fulfilled!
+RuleKit is about one thing: invoking a closure, or trigger a NSNotification when a set of rules are fulfilled!
 
 - Configure RuleKit when your application starts
 ```swift
@@ -73,7 +75,7 @@ struct ContentView: View {
     }
 }
 ```
-- Register your business rules that will trigger the notification
+- Register your business rules that should trigger your closure, or your notification
 ```swift
 RuleKit.setRule(
     triggering: requestReviewNotification, 
@@ -98,7 +100,7 @@ RuleKit.setRule(
     ])
 )
 ```
-- Donate those event at proper places in your app
+- Donate those events at proper places in your app
 ```swift
 // Asynchronously
 RuleKit.Event.appStarted.sendDonation()
