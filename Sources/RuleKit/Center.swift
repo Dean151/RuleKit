@@ -44,7 +44,7 @@ public final class RuleKit {
         }
     }
 
-    var rules: [Notification.Name: any Rule] = [:]
+    var rules: [(rule: any Rule, trigger: any Trigger)] = []
 
     private init() {}
 
@@ -56,15 +56,15 @@ public final class RuleKit {
     }
 
     func triggerFulfilledRules() async throws {
-        for (notification, rule) in rules {
+        for (rule, trigger) in rules {
             guard await rule.isFulfilled else {
                 continue
             }
             let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
             queue.async {
-                NotificationCenter.default.post(name: notification, object: nil)
+                trigger.execute()
             }
-            try await store.persist(triggerOf: notification)
+            try await store.persist(triggerOf: trigger)
         }
     }
 
@@ -72,8 +72,8 @@ public final class RuleKit {
         (try? await store.donations(for: event)) ?? .empty
     }
 
-    func lastTrigger(for notification: Notification.Name) async -> Date? {
-        try? await store.lastTrigger(of: notification)
+    func lastTrigger(for trigger: any Trigger) async -> Date? {
+        try? await store.lastTrigger(of: trigger)
     }
 
     func donate(_ event: Event) async {
@@ -113,6 +113,14 @@ extension RuleKit {
     }
 
     public static func setRule(triggering notification: Notification.Name, options: [any RuleKitOption] = [], _ rule: Rule) {
-        RuleKit.internal.rules[notification] = options.isEmpty ? rule : RuleWithOptions(options: options, notification: notification, rule: rule)
+        let trigger = NotificationCenterTrigger(notification: notification)
+        let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
+        RuleKit.internal.rules.append((rule, trigger))
+    }
+
+    public static func setRule(triggering callback: @escaping @Sendable () -> Void, rawValue: String, options: [any RuleKitOption] = [], _ rule: Rule) {
+        let trigger = CallbackTrigger(rawValue: rawValue, callback: callback)
+        let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
+        RuleKit.internal.rules.append((rule, trigger))
     }
 }

@@ -117,12 +117,12 @@ extension Rule where Self == AllOfRule {
 
 struct RuleWithOptions: Rule {
     let options: [RuleKitOption]
-    let notification: Notification.Name
+    let trigger: any Trigger
     let rule: Rule
 
     var isFulfilled: Bool {
         get async {
-            for option in options where await option.preventRuleFulfillment(for: notification) {
+            for option in options where await option.preventRuleFulfillment(for: trigger) {
                 return false
             }
             return await rule.isFulfilled

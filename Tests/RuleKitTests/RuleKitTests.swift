@@ -28,12 +28,48 @@
 import XCTest
 @testable import RuleKit
 
-final class RuleKitTests: XCTestCase {
-    func testExample() throws {
-        // XCTest Documentation
-        // https://developer.apple.com/documentation/xctest
+extension RuleKit.Event {
+    static let testEvent: Self = "test.event"
+}
 
-        // Defining Test Cases and Test Methods
-        // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
+final class RuleKitTests: XCTestCase {
+    static let testNotification = Notification.Name("test.notification")
+    static let testCallback = "test.callback"
+
+    @MainActor 
+    override class func setUp() {
+        do {
+            try RuleKit.configure(storeLocation: .applicationDefault)
+        } catch {}
+    }
+
+    func testNotificationRuleTriggering() async throws {
+        await RuleKit.Event.testEvent.reset()
+        await RuleKit.setRule(triggering: Self.testNotification, .anyOf {
+            EventRule(event: .testEvent) {
+                $0.donations.count > 0
+            }
+        })
+        let expectation = expectation(forNotification: Self.testNotification, object: nil)
+        await RuleKit.Event.testEvent.donate()
+        await fulfillment(of: [expectation])
+        let count = await RuleKit.Event.testEvent.donations.count
+        XCTAssertEqual(1, count)
+    }
+
+    func testCallbackRuleTriggering() async throws {
+        await RuleKit.Event.testEvent.reset()
+        let expectation = XCTestExpectation()
+        await RuleKit.setRule(triggering: {
+            expectation.fulfill()
+        }, rawValue: Self.testCallback, .anyOf {
+            EventRule(event: .testEvent) {
+                $0.donations.count > 0
+            }
+        })
+        await RuleKit.Event.testEvent.donate()
+        await fulfillment(of: [expectation])
+        let count = await RuleKit.Event.testEvent.donations.count
+        XCTAssertEqual(1, count)
     }
 }

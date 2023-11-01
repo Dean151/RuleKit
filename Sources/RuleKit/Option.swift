@@ -30,10 +30,10 @@ import Foundation
 public protocol RuleKitOption {
     /// If this returns true, the rule will never be fulfilled, and the notification prevented
     /// Defaults to false
-    func preventRuleFulfillment(for notification: Notification.Name) async -> Bool
+    func preventRuleFulfillment(for trigger: any Trigger) async -> Bool
 }
 extension RuleKitOption {
-    public func preventRuleFulfillment(for notification: Notification.Name) async -> Bool {
+    public func preventRuleFulfillment(for trigger: any Trigger) async -> Bool {
         false
     }
 }
@@ -70,8 +70,8 @@ public struct TriggerFrequencyOption: RuleKitOption {
     let frequency: Frequency
 
     // Thank you, Dave Delong for your thoughtful advices on handling dates at NSSpain XI
-    public func preventRuleFulfillment(for notification: Notification.Name) async -> Bool {
-        guard let lastTrigger = await RuleKit.internal.lastTrigger(for: notification) else {
+    public func preventRuleFulfillment(for trigger: any Trigger) async -> Bool {
+        guard let lastTrigger = await RuleKit.internal.lastTrigger(for: trigger) else {
             return false
         }
         guard let earliestDateForNextRuleTrigger = Calendar.current.date(byAdding: frequency.component, value: 1, to: lastTrigger) else {

@@ -83,18 +83,18 @@ extension RuleKit {
             self.url = url
         }
 
-        func lastTrigger(of notification: Notification.Name) throws -> Date? {
+        func lastTrigger(of trigger: any Trigger) throws -> Date? {
             if data == nil {
                 try loadData()
             }
-            return data?.lastTrigger[notification.rawValue]
+            return data?.lastTrigger[trigger.rawValue]
         }
 
-        func persist(triggerOf notification: Notification.Name) throws {
+        func persist(triggerOf trigger: any Trigger) throws {
             if data == nil {
                 try loadData()
             }
-            data?.lastTrigger[notification.rawValue] = Date()
+            data?.lastTrigger[trigger.rawValue] = Date()
             try saveData()
         }
 
