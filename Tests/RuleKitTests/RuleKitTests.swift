@@ -26,7 +26,7 @@
 //
 
 import XCTest
-@testable import RuleKit
+import RuleKit
 
 extension RuleKit.Event {
     static let testEvent: Self = "test.event"
@@ -45,6 +45,20 @@ final class RuleKitTests: XCTestCase {
 
     func testNotificationRuleTriggering() async throws {
         await RuleKit.Event.testEvent.reset()
+        await RuleKit.setRule(triggering: Self.testNotification, .anyOf([
+            EventRule(event: .testEvent) {
+                $0.donations.count > 0
+            }
+        ]))
+        let expectation = expectation(forNotification: Self.testNotification, object: nil)
+        await RuleKit.Event.testEvent.donate()
+        await fulfillment(of: [expectation])
+        let count = await RuleKit.Event.testEvent.donations.count
+        XCTAssertEqual(1, count)
+    }
+
+    func testNotificationRuleTriggeringResultBuilder() async throws {
+        await RuleKit.Event.testEvent.reset()
         await RuleKit.setRule(triggering: Self.testNotification, .anyOf {
             EventRule(event: .testEvent) {
                 $0.donations.count > 0
@@ -60,9 +74,25 @@ final class RuleKitTests: XCTestCase {
     func testCallbackRuleTriggering() async throws {
         await RuleKit.Event.testEvent.reset()
         let expectation = XCTestExpectation()
-        await RuleKit.setRule(triggering: {
+        await RuleKit.setRule(Self.testCallback, triggering: {
             expectation.fulfill()
-        }, rawValue: Self.testCallback, .anyOf {
+        }, .anyOf([
+            EventRule(event: .testEvent) {
+                $0.donations.count > 0
+            }
+        ]))
+        await RuleKit.Event.testEvent.donate()
+        await fulfillment(of: [expectation])
+        let count = await RuleKit.Event.testEvent.donations.count
+        XCTAssertEqual(1, count)
+    }
+
+    func testCallbackRuleTriggeringResultBuilder() async throws {
+        await RuleKit.Event.testEvent.reset()
+        let expectation = XCTestExpectation()
+        await RuleKit.setRule(Self.testCallback, triggering: {
+            expectation.fulfill()
+        }, .anyOf {
             EventRule(event: .testEvent) {
                 $0.donations.count > 0
             }

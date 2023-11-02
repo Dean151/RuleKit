@@ -37,9 +37,41 @@ extension Rule {
     }
 }
 
-@resultBuilder struct RuleBuilder {
-    static func buildBlock(_ components: Rule...) -> [any Rule] {
+@resultBuilder public struct RuleBuilder {
+    public static func buildBlock(_ components: Rule...) -> [any Rule] {
         components
+    }
+
+    public static func buildBlock(_ components: [Rule]...) -> [Rule] {
+        components.flatMap { $0 }
+    }
+
+    public static func buildExpression(_ expression: Rule) -> [Rule] {
+        [expression]
+    }
+
+    public static func buildExpression(_ expression: [Rule]) -> [Rule] {
+        expression
+    }
+
+    public static func buildOptional(_ component: [Rule]?) -> [Rule] {
+        component ?? []
+    }
+
+    public static func buildEither(first component: [Rule]) -> [Rule] {
+        component
+    }
+
+    public static func buildEither(second component: [Rule]) -> [Rule] {
+        component
+    }
+
+    public static func buildArray(_ components: [[Rule]]) -> [Rule] {
+        components.flatMap { $0 }
+    }
+
+    public static func buildLimitedAvailability(_ component: [Rule]) -> [Rule] {
+        component
     }
 }
 
@@ -59,7 +91,7 @@ public struct EventRule: Rule {
         }
     }
 
-    init(event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) {
+    public init(event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) {
         self.event = event
         self.condition = condition
     }
@@ -84,11 +116,23 @@ public struct AnyOfRule: Rule {
             return false
         }
     }
+
+    public init(rules: [any Rule]) {
+        self.rules = rules
+    }
+
+    public init(@RuleBuilder rules: () -> [any Rule]) {
+        self.rules = rules()
+    }
 }
 
 extension Rule where Self == AnyOfRule {
+    public static func anyOf(_  rules: [any Rule]) -> Rule {
+        AnyOfRule(rules: rules)
+    }
+
     public static func anyOf(@RuleBuilder _  rules: () -> [any Rule]) -> Rule {
-        AnyOfRule(rules: rules())
+        AnyOfRule(rules: rules)
     }
 }
 
@@ -105,11 +149,23 @@ public struct AllOfRule: Rule {
             return true
         }
     }
+
+    public init(rules: [any Rule]) {
+        self.rules = rules
+    }
+
+    public init(@RuleBuilder rules: () -> [any Rule]) {
+        self.rules = rules()
+    }
 }
 
 extension Rule where Self == AllOfRule {
+    public static func allOf(_  rules: [any Rule]) -> Rule {
+        AllOfRule(rules: rules)
+    }
+
     public static func allOf(@RuleBuilder _  rules: () -> [any Rule]) -> Rule {
-        AllOfRule(rules: rules())
+        AllOfRule(rules: rules)
     }
 }
 
