@@ -112,17 +112,31 @@ extension RuleKit {
         try RuleKit.internal.configure(storeLocation: storeLocation)
     }
 
+    /// - Parameter name: A unique name that will be used as an identifier for registering already triggered rules.
+    /// - Parameter notification: A notification to trigger when the rules are fulfilled.
+    /// - Parameter options: Some facultative options to attach to the rule set
+    /// - Parameter rule: The ruleset that need to be fulfilled to trigger the notification
+    /// When name is not provided, notification.rawValue is used instead
     public static func setRule(_ name: String? = nil, triggering notification: Notification.Name, options: [any RuleKitOption] = [], _ rule: Rule) {
         let trigger = NotificationCenterTrigger(rawValue: name, notification: notification)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.rules.append((rule, trigger))
     }
 
+    /// - Parameter name: A unique name that will be used as an identifier for registering already triggered rules.
+    /// - Parameter callback: A closure callback to trigger when the rules are fulfilled.
+    /// - Parameter options: Some facultative options to attach to the rule set
+    /// - Parameter rule: The ruleset that need to be fulfilled to trigger the closure
     public static func setRule(_ name: String, triggering callback: @escaping @Sendable () -> Void, options: [any RuleKitOption] = [], _ rule: Rule) {
         let trigger = CallbackTrigger(rawValue: name, callback: callback)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.rules.append((rule, trigger))
     }
+
+    /// - Parameter name: A unique name that will be used as an identifier for registering already triggered rules.
+    /// - Parameter callback: A closure callback to trigger when the rules are fulfilled.
+    /// - Parameter options: Some facultative options to attach to the rule set
+    /// - Parameter rule: The ruleset that need to be fulfilled to trigger the closure
     @available(*, deprecated, message: "Use setRule(_:, callback:, options:, rule:) instead")
     public static func setRule(triggering callback: @escaping @Sendable () -> Void, name: String, options: [any RuleKitOption] = [], _ rule: Rule) {
         setRule(name, triggering: callback, options: options, rule)

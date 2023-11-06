@@ -52,8 +52,11 @@ extension RuleKit.Event {
     public struct Donations: Sendable, Codable {
         static let empty = Donations(count: 0, first: nil, last: nil)
 
+        /// The amount of time this donation have been made since last reset
         public let count: Int
+        /// The first donation made since last reset
         public let first: Donation?
+        /// The last donation made since last reset
         public let last: Donation?
     }
 }
