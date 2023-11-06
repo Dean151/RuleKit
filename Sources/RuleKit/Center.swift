@@ -112,20 +112,19 @@ extension RuleKit {
         try RuleKit.internal.configure(storeLocation: storeLocation)
     }
 
-    public static func setRule(triggering notification: Notification.Name, options: [any RuleKitOption] = [], _ rule: Rule) {
-        let trigger = NotificationCenterTrigger(notification: notification)
+    public static func setRule(_ name: String? = nil, triggering notification: Notification.Name, options: [any RuleKitOption] = [], _ rule: Rule) {
+        let trigger = NotificationCenterTrigger(rawValue: name, notification: notification)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.rules.append((rule, trigger))
-    }
-
-    @available(*, deprecated, message: "Use setRule(_:, callback:, options:, rule:) instead")
-    public static func setRule(triggering callback: @escaping @Sendable () -> Void, name: String, options: [any RuleKitOption] = [], _ rule: Rule) {
-        setRule(name, triggering: callback, options: options, rule)
     }
 
     public static func setRule(_ name: String, triggering callback: @escaping @Sendable () -> Void, options: [any RuleKitOption] = [], _ rule: Rule) {
         let trigger = CallbackTrigger(rawValue: name, callback: callback)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.rules.append((rule, trigger))
+    }
+    @available(*, deprecated, message: "Use setRule(_:, callback:, options:, rule:) instead")
+    public static func setRule(triggering callback: @escaping @Sendable () -> Void, name: String, options: [any RuleKitOption] = [], _ rule: Rule) {
+        setRule(name, triggering: callback, options: options, rule)
     }
 }

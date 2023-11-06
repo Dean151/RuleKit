@@ -33,10 +33,12 @@ public protocol Trigger: Sendable {
 }
 
 struct NotificationCenterTrigger: Trigger {
+    let rawValue: String
     let notification: Notification.Name
 
-    var rawValue: String {
-        notification.rawValue
+    init(rawValue: String?, notification: Notification.Name) {
+        self.rawValue = rawValue ?? notification.rawValue
+        self.notification = notification
     }
 
     func execute() {
