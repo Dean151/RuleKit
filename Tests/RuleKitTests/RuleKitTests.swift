@@ -45,9 +45,12 @@ final class RuleKitTests: XCTestCase {
 
     func testNotificationRuleTriggering() async throws {
         await RuleKit.Event.testEvent.reset()
-        await RuleKit.setRule(triggering: Self.testNotification, .anyOf([
-            EventRule(event: .testEvent) {
+        await RuleKit.setRule(triggering: Self.testNotification, .allOf([
+            .event(.testEvent) {
                 $0.donations.count > 0
+            },
+            .condition {
+                true
             }
         ]))
         let expectation = expectation(forNotification: Self.testNotification, object: nil)
@@ -59,9 +62,12 @@ final class RuleKitTests: XCTestCase {
 
     func testNotificationRuleTriggeringResultBuilder() async throws {
         await RuleKit.Event.testEvent.reset()
-        await RuleKit.setRule(triggering: Self.testNotification, .anyOf {
+        await RuleKit.setRule(triggering: Self.testNotification, .allOf {
             EventRule(event: .testEvent) {
                 $0.donations.count > 0
+            }
+            ConditionRule {
+                true
             }
         })
         let expectation = expectation(forNotification: Self.testNotification, object: nil)
@@ -77,7 +83,7 @@ final class RuleKitTests: XCTestCase {
         await RuleKit.setRule(Self.testCallback, triggering: {
             expectation.fulfill()
         }, .anyOf([
-            EventRule(event: .testEvent) {
+            .event(.testEvent) {
                 $0.donations.count > 0
             }
         ]))

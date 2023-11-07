@@ -75,30 +75,52 @@ extension Rule {
     }
 }
 
+// MARK: Condition rule
+
+public struct ConditionRule: Rule {
+    let condition: () async -> Bool
+
+    public var isFulfilled: Bool {
+        get async {
+            await condition()
+        }
+    }
+
+    public init(condition: @escaping () async -> Bool) {
+        self.condition = condition
+    }
+}
+
+extension Rule where Self == ConditionRule {
+    public static func condition(_ condition: @escaping () -> Bool) async -> Rule {
+        ConditionRule(condition: condition)
+    }
+}
+
 // MARK: Event rule
 
 public struct EventRule: Rule {
     let event: RuleKit.Event
-    let condition: (RuleKit.DonatedEvent) -> Bool
+    let condition: (RuleKit.DonatedEvent) async -> Bool
 
     public var isFulfilled: Bool {
         get async {
             let donations = await event.donations
-            if condition(RuleKit.DonatedEvent(event: event, donations: donations)) {
+            if await condition(RuleKit.DonatedEvent(event: event, donations: donations)) {
                 return true
             }
             return false
         }
     }
 
-    public init(event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) {
+    public init(event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) async -> Bool) {
         self.event = event
         self.condition = condition
     }
 }
 
 extension Rule where Self == EventRule {
-    public static func event(_ event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) -> Rule {
+    public static func event(_ event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) async -> Rule {
         EventRule(event: event, condition: condition)
     }
 }
