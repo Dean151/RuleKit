@@ -92,7 +92,7 @@ public struct ConditionRule: Rule {
 }
 
 extension Rule where Self == ConditionRule {
-    public static func condition(_ condition: @escaping () -> Bool) async -> Rule {
+    public static func condition(_ condition: @escaping () async -> Bool) -> Rule {
         ConditionRule(condition: condition)
     }
 }
@@ -120,7 +120,7 @@ public struct EventRule: Rule {
 }
 
 extension Rule where Self == EventRule {
-    public static func event(_ event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) -> Bool) async -> Rule {
+    public static func event(_ event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) async -> Bool) -> Rule {
         EventRule(event: event, condition: condition)
     }
 }

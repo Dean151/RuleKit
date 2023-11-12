@@ -32,11 +32,11 @@ extension RuleKit.Event {
     static let testEvent: Self = "test.event"
 }
 
+@MainActor
 final class RuleKitTests: XCTestCase {
     static let testNotification = Notification.Name("test.notification")
     static let testCallback = "test.callback"
 
-    @MainActor 
     override class func setUp() {
         do {
             try RuleKit.configure(storeLocation: .applicationDefault)
@@ -45,7 +45,7 @@ final class RuleKitTests: XCTestCase {
 
     func testNotificationRuleTriggering() async throws {
         await RuleKit.Event.testEvent.reset()
-        await RuleKit.setRule(triggering: Self.testNotification, .allOf([
+        RuleKit.setRule(triggering: Self.testNotification, .allOf([
             .event(.testEvent) {
                 $0.donations.count > 0
             },
@@ -62,7 +62,7 @@ final class RuleKitTests: XCTestCase {
 
     func testNotificationRuleTriggeringResultBuilder() async throws {
         await RuleKit.Event.testEvent.reset()
-        await RuleKit.setRule(triggering: Self.testNotification, .allOf {
+        RuleKit.setRule(triggering: Self.testNotification, .allOf {
             EventRule(event: .testEvent) {
                 $0.donations.count > 0
             }
@@ -80,7 +80,7 @@ final class RuleKitTests: XCTestCase {
     func testCallbackRuleTriggering() async throws {
         await RuleKit.Event.testEvent.reset()
         let expectation = XCTestExpectation()
-        await RuleKit.setRule(Self.testCallback, triggering: {
+        RuleKit.setRule(Self.testCallback, triggering: {
             expectation.fulfill()
         }, .anyOf([
             .event(.testEvent) {
@@ -96,7 +96,7 @@ final class RuleKitTests: XCTestCase {
     func testCallbackRuleTriggeringResultBuilder() async throws {
         await RuleKit.Event.testEvent.reset()
         let expectation = XCTestExpectation()
-        await RuleKit.setRule(Self.testCallback, triggering: {
+        RuleKit.setRule(Self.testCallback, triggering: {
             expectation.fulfill()
         }, .anyOf {
             EventRule(event: .testEvent) {
