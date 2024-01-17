@@ -27,7 +27,7 @@
 
 import Foundation
 
-public protocol RuleKitOption {
+public protocol RuleKitOption: Sendable {
     /// If this returns true, the rule will never be fulfilled, and the notification prevented
     /// Defaults to false
     func preventRuleFulfillment(for trigger: any Trigger) async -> Bool
@@ -41,7 +41,7 @@ extension RuleKitOption {
 // MARK: - TriggerFrequency
 
 public struct TriggerFrequencyOption: RuleKitOption {
-    public enum Frequency {
+    public enum Frequency: Sendable {
         case hourly
         case daily
         case weekly

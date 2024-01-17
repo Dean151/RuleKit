@@ -27,7 +27,7 @@
 
 import Foundation
 
-public protocol Rule {
+public protocol Rule: Sendable {
     var isFulfilled: Bool { get async }
 }
 
@@ -78,7 +78,7 @@ extension Rule {
 // MARK: Condition rule
 
 public struct ConditionRule: Rule {
-    let condition: () async -> Bool
+    let condition: @Sendable () async -> Bool
 
     public var isFulfilled: Bool {
         get async {
@@ -86,13 +86,13 @@ public struct ConditionRule: Rule {
         }
     }
 
-    public init(condition: @escaping () async -> Bool) {
+    public init(condition: @escaping @Sendable () async -> Bool) {
         self.condition = condition
     }
 }
 
 extension Rule where Self == ConditionRule {
-    public static func condition(_ condition: @escaping () async -> Bool) -> Rule {
+    public static func condition(_ condition: @escaping @Sendable () async -> Bool) -> Rule {
         ConditionRule(condition: condition)
     }
 }
@@ -101,7 +101,7 @@ extension Rule where Self == ConditionRule {
 
 public struct EventRule: Rule {
     let event: RuleKit.Event
-    let condition: (RuleKit.DonatedEvent) async -> Bool
+    let condition: @Sendable (RuleKit.DonatedEvent) async -> Bool
 
     public var isFulfilled: Bool {
         get async {
@@ -113,14 +113,14 @@ public struct EventRule: Rule {
         }
     }
 
-    public init(event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) async -> Bool) {
+    public init(event: RuleKit.Event, condition: @escaping @Sendable (RuleKit.DonatedEvent) async -> Bool) {
         self.event = event
         self.condition = condition
     }
 }
 
 extension Rule where Self == EventRule {
-    public static func event(_ event: RuleKit.Event, condition: @escaping (RuleKit.DonatedEvent) async -> Bool) -> Rule {
+    public static func event(_ event: RuleKit.Event, condition: @escaping @Sendable (RuleKit.DonatedEvent) async -> Bool) -> Rule {
         EventRule(event: event, condition: condition)
     }
 }
