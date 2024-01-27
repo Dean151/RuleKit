@@ -12,21 +12,11 @@ let package = Package(
     targets: [
         .target(
             name: "RuleKit",
-            swiftSettings: [
-                .strictConcurrency,
-                .warnLongExpressionTypeChecking
-            ]),
+            swiftSettings: [.strictConcurrency]),
         .testTarget(name: "RuleKitTests", dependencies: ["RuleKit"]),
     ]
 )
 
 extension SwiftSetting {
     static let strictConcurrency = enableUpcomingFeature("StrictConcurrency")
-    static let warnLongExpressionTypeChecking = unsafeFlags(
-        [
-            "-Xfrontend", "-warn-long-expression-type-checking=100",
-            "-Xfrontend", "-warn-long-function-bodies=100",
-        ],
-        .when(configuration: .debug)
-    )
 }
