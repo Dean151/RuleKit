@@ -10,7 +10,7 @@ TipKit style API to trigger an arbitrary closure, or a NSNotification based on e
 - ...
 
 ## Requirements
-- Swift 5.8+ (Xcode 14.3+)
+- Swift 5.9+ (Xcode 15+)
 - iOS 14+, iPadOS 14+, tvOS 14+, watchOS 7+, macOS 11+
 
 ## Installation
@@ -18,7 +18,7 @@ TipKit style API to trigger an arbitrary closure, or a NSNotification based on e
 Install using Swift Package Manager
 ```
 dependencies: [
-    .package(url: "https://github.com/Dean151/RuleKit.git", from: "0.2.0"),
+    .package(url: "https://github.com/Dean151/RuleKit.git", from: "0.5.0"),
 ],
 targets: [
     .target(name: "MyTarget", dependencies: [
@@ -124,6 +124,7 @@ await RuleKit.Event.appStarted.reset()
 ### Available options:
 - `.triggerFrequency(_)`: Throttle down notification donation or using given period
 - `.dispatchQueue(_)`: Choose the DispatchQueue you want your notification to be sent from. Defaults to main queue.
+- `.delay(for: _)` and `.delay(nanoseconds: _)`: Delay the trigger of a specific notification after it was fulfilled.
 
 ### Event.Donations properties available in the condition closure:
 - `count`: the number of times an event have been donated
