@@ -59,6 +59,63 @@ final class RuleKitTests: XCTestCase {
         let count = await RuleKit.Event.testEvent.donations.count
         XCTAssertEqual(1, count)
     }
+    
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func testNotificationRuleTriggeringDelayed() async throws {
+        let duration = Duration.seconds(5)
+        await RuleKit.Event.testEvent.reset()
+        RuleKit.setRule(
+            triggering: Self.testNotification,
+            options: [.delay(for: duration)],
+            .allOf([
+                .event(.testEvent) {
+                    $0.donations.count > 0
+                },
+                .condition {
+                    true
+                }
+            ])
+        )
+        let expectation = expectation(forNotification: Self.testNotification, object: nil)
+        let clock = ContinuousClock()
+        let measuredDuration = await clock.measure {
+            await RuleKit.Event.testEvent.donate()
+            await fulfillment(of: [expectation])
+        }
+        // Measured duration should be at least the duration in the Rule Options
+        XCTAssertTrue(measuredDuration >= duration)
+    }
+
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    func testParallelizedTrigger() async throws {
+        let duration = Duration.seconds(5)
+        await RuleKit.Event.testEvent.reset()
+        
+        let delayExpectation = XCTestExpectation()
+        RuleKit.setRule(Self.testCallback, triggering: {
+            print("Rule with DelayOption triggered")
+            delayExpectation.fulfill()
+        }, options: [.delay(for: duration)], .anyOf([
+            .event(.testEvent) {
+                $0.donations.count > 0
+            }
+        ]))
+        
+        let expectation = XCTestExpectation()
+        RuleKit.setRule(Self.testCallback, triggering: {
+            print("Rule without DelayOption triggered")
+            expectation.fulfill()
+        }, options: [], .anyOf([
+            .event(.testEvent) {
+                $0.donations.count > 0
+            }
+        ]))
+        
+        await RuleKit.Event.testEvent.donate()
+        // If the rules are checked in parallel, then the rule without delay option should
+        // get triggered before the rule with the delay option.
+        await fulfillment(of: [expectation, delayExpectation], enforceOrder: true)
+    }
 
     func testNotificationRuleTriggeringResultBuilder() async throws {
         await RuleKit.Event.testEvent.reset()

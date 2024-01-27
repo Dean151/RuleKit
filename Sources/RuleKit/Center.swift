@@ -56,15 +56,19 @@ public final class RuleKit {
     }
 
     func triggerFulfilledRules() async throws {
-        for (rule, trigger) in rules {
-            guard await rule.isFulfilled else {
-                continue
+        try await withThrowingTaskGroup(of: Void.self) { [store] group in
+            for (rule, trigger) in rules {
+                group.addTask {
+                    guard await rule.isFulfilled else {
+                        return
+                    }
+                    let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
+                    queue.async {
+                        trigger.execute()
+                    }
+                    try await store.persist(triggerOf: trigger)
+                }
             }
-            let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
-            queue.async {
-                trigger.execute()
-            }
-            try await store.persist(triggerOf: trigger)
         }
     }
 
