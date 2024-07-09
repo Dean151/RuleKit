@@ -73,16 +73,16 @@ public final class RuleKit {
     }
 
     func donations(for event: Event) async -> Event.Donations {
-        (try? await store.donations(for: event)) ?? .empty
+        (try? store.donations(for: event)) ?? .empty
     }
 
     func lastTrigger(for trigger: any Trigger) async -> Date? {
-        try? await store.lastTrigger(of: trigger)
+        try? store.lastTrigger(of: trigger)
     }
 
     func donate(_ event: Event) async {
         do {
-            let previous = try await store.donations(for: event)
+            let previous = try store.donations(for: event)
             // Must implement first since it might be used twice (and result having different dates)
             let donation = Event.Donation.now
             let donations = Event.Donations(
@@ -90,7 +90,7 @@ public final class RuleKit {
                 first: previous.first ?? donation,
                 last: donation
             )
-            try await store.persist(donations, for: event)
+            try store.persist(donations, for: event)
             try await triggerFulfilledRules()
         } catch {
             logger.error("Donation failed for event \(event.rawValue) with error: \(error)")
@@ -99,7 +99,7 @@ public final class RuleKit {
 
     func reset(_ event: Event) async {
         do {
-            try await store.persist(.empty, for: event)
+            try store.persist(.empty, for: event)
         } catch {
             logger.error("Reseting donations failed for event \(event.rawValue) with error: \(error)")
         }

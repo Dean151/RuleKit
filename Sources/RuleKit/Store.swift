@@ -28,7 +28,8 @@
 import Foundation
 
 extension RuleKit {
-    public actor Store {
+    @MainActor
+    public class Store {
         enum Error: Swift.Error {
             case missingGroupIdentifier
             case storeAlreadyConfigured
@@ -68,6 +69,7 @@ extension RuleKit {
                 }
             }
 
+            @MainActor
             func createStore() throws -> Store {
                 var url = try self.url
                 url.appendPathComponent("RuleKitEvents.plist")
