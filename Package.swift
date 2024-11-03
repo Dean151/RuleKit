@@ -13,5 +13,5 @@ let package = Package(
         .target(name: "RuleKit"),
         .testTarget(name: "RuleKitTests", dependencies: ["RuleKit"]),
     ],
-    swiftLanguageVersions: [.v6]
+    swiftLanguageModes: [.v6]
 )
