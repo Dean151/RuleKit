@@ -67,11 +67,33 @@ public final class RuleKit {
                     guard await rule.isFulfilled else {
                         return
                     }
-                    // Atomically claim the trigger before firing: this records the
-                    // fire and enforces any frequency throttle in a single step, so
-                    // concurrent donations cannot race between checking the throttle
-                    // and recording the fire and thus both fire.
                     let throttle = rule.firstOption(ofType: TriggerFrequencyOption.self)?.frequency.component
+                    if let delay = rule.firstOption(ofType: DelayOption.self) {
+                        // Skip a rule that is already throttled before waiting out its
+                        // delay (cheap, non-authoritative; the claim below re-checks
+                        // atomically), so throttled rules are still dropped immediately.
+                        do {
+                            if try await store.isThrottled(for: trigger, notBefore: throttle) {
+                                return
+                            }
+                        } catch {
+                            logger.error("Reading throttle for trigger \(trigger.rawValue) failed with error: \(error)")
+                            return
+                        }
+                        // Apply the delay before claiming. A cancelled delay (task
+                        // cancellation, or the app being killed mid-delay) then leaves
+                        // the throttle window untouched instead of consuming it without
+                        // ever firing.
+                        do {
+                            try await delay.wait()
+                        } catch {
+                            return
+                        }
+                    }
+                    // Atomically claim the trigger: this records the fire and enforces
+                    // any frequency throttle in a single step, so concurrent donations
+                    // cannot race between checking the throttle and recording the fire
+                    // and thus both fire.
                     do {
                         guard try await store.claimTrigger(for: trigger, notBefore: throttle) else {
                             return
@@ -81,16 +103,6 @@ public final class RuleKit {
                         // must skip only this rule, not cancel sibling rules in the group.
                         logger.error("Claiming trigger \(trigger.rawValue) failed with error: \(error)")
                         return
-                    }
-                    // Apply any delay only after the trigger is claimed, so the
-                    // actual firing is delayed while throttled rules are skipped
-                    // immediately. A cancelled delay skips firing this time.
-                    if let delay = rule.firstOption(ofType: DelayOption.self) {
-                        do {
-                            try await delay.wait()
-                        } catch {
-                            return
-                        }
                     }
                     // Fire on the chosen queue and await the execution, so this
                     // structured task does not complete before the trigger has run.

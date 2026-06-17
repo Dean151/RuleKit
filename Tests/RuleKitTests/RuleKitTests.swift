@@ -92,11 +92,59 @@ actor FailingStore: RuleStore {
 
     func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) throws {}
 
+    func isThrottled(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+        false
+    }
+
     func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
         if trigger.rawValue == failingTriggerName {
             throw InjectedError()
         }
         return true
+    }
+}
+
+/// An in-memory store that mimics the real throttle semantics (a claimed trigger
+/// stays throttled) and counts how many claims were attempted, so the firing
+/// pipeline's ordering can be observed without touching the filesystem.
+actor SpyStore: RuleStore {
+    private(set) var claimCount = 0
+    private var claimedTriggers: Set<String> = []
+
+    @discardableResult
+    func incrementDonation(for event: RuleKit.Event) throws -> RuleKit.Event.Donations {
+        .empty
+    }
+
+    func donations(for event: RuleKit.Event) throws -> RuleKit.Event.Donations {
+        .empty
+    }
+
+    func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) throws {}
+
+    func isThrottled(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+        guard component != nil else {
+            return false
+        }
+        return claimedTriggers.contains(trigger.rawValue)
+    }
+
+    func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+        claimCount += 1
+        if component != nil, claimedTriggers.contains(trigger.rawValue) {
+            return false
+        }
+        claimedTriggers.insert(trigger.rawValue)
+        return true
+    }
+}
+
+/// A sleeper that always throws, simulating a delay interrupted by task
+/// cancellation or the app being killed mid-delay.
+struct ThrowingSleeper: Sleeper {
+    struct Interrupted: Error {}
+    func sleep() async throws {
+        throw Interrupted()
     }
 }
 
@@ -336,5 +384,31 @@ struct RuleKitTests {
 
         #expect(healthyCounter.value == 1, "The healthy rule must fire even though a sibling rule's claim failed.")
         #expect(failingCounter.value == 0, "The rule whose claim threw must not fire.")
+    }
+
+    @Test("An interrupted delay does not consume the throttle window")
+    func interruptedDelayPreservesThrottleWindow() async {
+        let store = SpyStore()
+        let kit = RuleKit(store: store)
+        let counter = FireCounter()
+        let trigger = CallbackTrigger(rawValue: "test.interrupted.delay", callback: { counter.increment() })
+
+        // A throttled, delayed rule whose delay is interrupted before it completes.
+        kit.register(
+            rule: RuleWithOptions(
+                options: [.triggerFrequency(.daily), DelayOption(sleeper: ThrowingSleeper())],
+                trigger: trigger,
+                rule: ConditionRule { true }
+            ),
+            trigger: trigger
+        )
+
+        await kit.donate("test.interrupted.delay.event")
+
+        #expect(counter.value == 0, "An interrupted delay must not fire the trigger.")
+        #expect(
+            await store.claimCount == 0,
+            "An interrupted delay must not claim the trigger, so its throttle window stays open."
+        )
     }
 }

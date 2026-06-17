@@ -34,6 +34,7 @@ protocol RuleStore: Sendable {
     func incrementDonation(for event: RuleKit.Event) async throws -> RuleKit.Event.Donations
     func donations(for event: RuleKit.Event) async throws -> RuleKit.Event.Donations
     func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) async throws
+    func isThrottled(for trigger: any Trigger, notBefore component: Calendar.Component?) async throws -> Bool
     func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) async throws -> Bool
 }
 
@@ -108,15 +109,33 @@ extension RuleKit {
         func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
             try ensureLoaded()
             let now = Date()
-            // Thank you, Dave Delong for your thoughtful advices on handling dates at NSSpain XI
-            if let component, let lastTrigger = data?.lastTrigger[trigger.rawValue],
-               let earliestNextTrigger = Calendar.current.date(byAdding: component, value: 1, to: lastTrigger),
-               earliestNextTrigger > now {
+            if let component, isWithinThrottleWindow(for: trigger, component: component, now: now) {
                 // We are still within the throttle window: deny the claim.
                 return false
             }
             data?.lastTrigger[trigger.rawValue] = now
             try saveData()
+            return true
+        }
+
+        /// A read-only, non-authoritative check of whether `trigger` is currently
+        /// within its throttle window. Used to skip an already-throttled rule before
+        /// waiting out its delay; `claimTrigger` remains the atomic source of truth.
+        func isThrottled(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+            guard let component else {
+                return false
+            }
+            try ensureLoaded()
+            return isWithinThrottleWindow(for: trigger, component: component, now: Date())
+        }
+
+        // Thank you, Dave Delong for your thoughtful advices on handling dates at NSSpain XI
+        private func isWithinThrottleWindow(for trigger: any Trigger, component: Calendar.Component, now: Date) -> Bool {
+            guard let lastTrigger = data?.lastTrigger[trigger.rawValue],
+                  let earliestNextTrigger = Calendar.current.date(byAdding: component, value: 1, to: lastTrigger),
+                  earliestNextTrigger > now else {
+                return false
+            }
             return true
         }
 
