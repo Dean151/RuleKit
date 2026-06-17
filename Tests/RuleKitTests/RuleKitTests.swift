@@ -185,7 +185,10 @@ struct RuleKitTests {
 
     init() async throws {
         // Configure once; later calls throw storeAlreadyConfigured, which we ignore.
-        try? RuleKit.configure(storeLocation: .applicationDefault)
+        // Use a temporary directory rather than .applicationDefault so the suite is
+        // hermetic and works on every platform (e.g. Linux, where the document
+        // directory may not exist).
+        try? RuleKit.configure(storeLocation: .url(URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)))
         // The rule list is global; start every test from a clean slate so rules
         // registered by other tests cannot fire during this one. Also cancel any
         // delayed triggers a previous test left pending.
