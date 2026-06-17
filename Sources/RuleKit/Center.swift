@@ -192,10 +192,20 @@ public final class RuleKit {
     }
 
     func register(rule: any Rule, trigger: any Trigger) {
-        if rules.contains(where: { $0.trigger.rawValue == trigger.rawValue }) {
-            logger.warning("A rule is already registered for trigger name \"\(trigger.rawValue, privacy: .public)\". Both rules will share the same trigger record and frequency throttle; use a distinct name to keep them independent.")
+        if let index = rules.firstIndex(where: { $0.trigger.rawValue == trigger.rawValue }) {
+            // Re-registering the same name replaces the existing rule rather than
+            // appending. This keeps registration idempotent (e.g. calling setRule on
+            // every view appearance no longer grows the rule list without bound) and
+            // avoids two rules silently sharing one trigger record and throttle.
+            logger.warning("Replacing the rule already registered for trigger name \"\(trigger.rawValue, privacy: .public)\".")
+            rules[index] = (rule, trigger)
+        } else {
+            rules.append((rule, trigger))
         }
-        rules.append((rule, trigger))
+    }
+
+    func removeRule(named name: String) {
+        rules.removeAll { $0.trigger.rawValue == name }
     }
 }
 
@@ -209,7 +219,7 @@ extension RuleKit {
         try RuleKit.internal.configure(storeLocation: storeLocation)
     }
 
-    /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Defaults to `notification.rawValue`. Reusing a name across rules makes them share one trigger record and throttle; a warning is logged when a collision is detected.
+    /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Defaults to `notification.rawValue`. Registering a new rule with an existing name replaces the previous one (and logs a warning); use `removeRule(named:)` to unregister.
     /// - Parameter notification: A notification to trigger when the rules are fulfilled.
     /// - Parameter options: Some facultative options to attach to the rule set
     /// - Parameter rule: The ruleset that need to be fulfilled to trigger the notification
@@ -219,7 +229,7 @@ extension RuleKit {
         RuleKit.internal.register(rule: rule, trigger: trigger)
     }
 
-    /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Reusing a name across rules makes them share one trigger record and throttle; a warning is logged when a collision is detected.
+    /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Registering a new rule with an existing name replaces the previous one (and logs a warning); use `removeRule(named:)` to unregister.
     /// - Parameter callback: A closure callback to trigger when the rules are fulfilled.
     /// - Parameter options: Some facultative options to attach to the rule set
     /// - Parameter rule: The ruleset that need to be fulfilled to trigger the closure
@@ -227,5 +237,11 @@ extension RuleKit {
         let trigger = CallbackTrigger(rawValue: name, callback: callback)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.register(rule: rule, trigger: trigger)
+    }
+
+    /// Unregister a previously set rule so it no longer evaluates or triggers.
+    /// - Parameter name: The rule's identifier. For notification rules registered without an explicit name, this is the notification's `rawValue`.
+    public static func removeRule(named name: String) {
+        RuleKit.internal.removeRule(named: name)
     }
 }

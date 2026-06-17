@@ -494,4 +494,47 @@ struct RuleKitTests {
         #expect(counter.value == 0, "A rule no longer fulfilled after its delay must not fire.")
         #expect(await store.claimCount == 0, "A rule that fails the post-delay re-check must not be claimed.")
     }
+
+    @Test("Re-registering a rule with the same name replaces it instead of accumulating")
+    func reRegisteringSameNameReplaces() async {
+        let kit = RuleKit(store: SpyStore())
+        let firstFired = FireCounter()
+        let secondFired = FireCounter()
+
+        kit.register(
+            rule: ConditionRule { true },
+            trigger: CallbackTrigger(rawValue: "test.duplicate", callback: { firstFired.increment() })
+        )
+        kit.register(
+            rule: ConditionRule { true },
+            trigger: CallbackTrigger(rawValue: "test.duplicate", callback: { secondFired.increment() })
+        )
+
+        #expect(kit.rules.count == 1, "A second rule with the same name must replace the first, not accumulate.")
+
+        await kit.donate("test.duplicate.event")
+        await kit.waitForPendingTriggers()
+
+        #expect(firstFired.value == 0, "The replaced rule must not fire.")
+        #expect(secondFired.value == 1, "The replacement rule must fire.")
+    }
+
+    @Test("A removed rule no longer fires")
+    func removedRuleDoesNotFire() async {
+        let kit = RuleKit(store: SpyStore())
+        let counter = FireCounter()
+
+        kit.register(
+            rule: ConditionRule { true },
+            trigger: CallbackTrigger(rawValue: "test.removable", callback: { counter.increment() })
+        )
+        kit.removeRule(named: "test.removable")
+
+        #expect(kit.rules.isEmpty)
+
+        await kit.donate("test.removable.event")
+        await kit.waitForPendingTriggers()
+
+        #expect(counter.value == 0, "A removed rule must not fire.")
+    }
 }
