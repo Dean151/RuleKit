@@ -15,6 +15,7 @@ TipKit style API to trigger an arbitrary closure, or a NSNotification based on e
 ## Requirements
 - Swift 6.0+ (Xcode 16+)
 - iOS 14+, iPadOS 14+, tvOS 14+, watchOS 7+, macOS 11+
+- Linux
 
 ## Installation
 
@@ -124,9 +125,11 @@ await RuleKit.Event.appStarted.reset()
 - `.groupContainer(identifier: String)`: Will store your event donations in the shared AppGroup container
 - `.url(URL)`: Provide your own URL. It should be a directory URL.
 
+> On Linux, prefer `.url(_)`: AppGroup containers don't exist (`.groupContainer` throws) and `.applicationDefault` resolves to `~/Documents`, which may not exist on a server. Note also that `AppVersion.current` is `nil` on Linux (there is no `Info.plist`), so version-based conditions always compare against `nil`.
+
 ### Available options:
 - `.triggerFrequency(_)`: Throttle down notification donation or using given period
-- `.dispatchQueue(_)`: Choose the DispatchQueue you want your notification to be sent from. Defaults to main queue.
+- `.dispatchQueue(_)`: Choose the DispatchQueue you want your notification to be sent from. Defaults to the main actor.
 - `.delay(for: _)` and `.delay(nanoseconds: _)`: Delay the trigger of a specific notification after it was fulfilled.
 
 ### Event.Donations properties available in the condition closure:
