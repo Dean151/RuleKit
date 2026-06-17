@@ -67,22 +67,11 @@ public struct TriggerFrequencyOption: RuleKitOption {
         }
     }
 
+    // The throttle is not applied here: gating on the last fire date inside the
+    // rule evaluation would be a check-then-act race, since the fire is recorded
+    // separately and later. Instead the frequency is consumed at fire time via
+    // `Store.claimTrigger(for:notBefore:)`, which checks and records atomically.
     let frequency: Frequency
-
-    // Thank you, Dave Delong for your thoughtful advices on handling dates at NSSpain XI
-    public func preventRuleFulfillment(for trigger: any Trigger) async -> Bool {
-        guard let lastTrigger = await RuleKit.internal.lastTrigger(for: trigger) else {
-            return false
-        }
-        guard let earliestDateForNextRuleTrigger = Calendar.current.date(byAdding: frequency.component, value: 1, to: lastTrigger) else {
-            return false
-        }
-        if earliestDateForNextRuleTrigger > Date() {
-            // If we are before the earliest next trigger date, prevent trigger by returning true
-            return true
-        }
-        return false
-    }
 }
 
 extension RuleKitOption where Self == TriggerFrequencyOption {

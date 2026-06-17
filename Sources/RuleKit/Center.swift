@@ -62,11 +62,18 @@ public final class RuleKit {
                     guard await rule.isFulfilled else {
                         return
                     }
+                    // Atomically claim the trigger before firing: this records the
+                    // fire and enforces any frequency throttle in a single step, so
+                    // concurrent donations cannot race between checking the throttle
+                    // and recording the fire and thus both fire.
+                    let throttle = rule.firstOption(ofType: TriggerFrequencyOption.self)?.frequency.component
+                    guard try await store.claimTrigger(for: trigger, notBefore: throttle) else {
+                        return
+                    }
                     let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
                     queue.async {
                         trigger.execute()
                     }
-                    try await store.persist(triggerOf: trigger)
                 }
             }
         }
@@ -74,10 +81,6 @@ public final class RuleKit {
 
     func donations(for event: Event) async -> Event.Donations {
         (try? await store.donations(for: event)) ?? .empty
-    }
-
-    func lastTrigger(for trigger: any Trigger) async -> Date? {
-        try? await store.lastTrigger(of: trigger)
     }
 
     func donate(_ event: Event) async {

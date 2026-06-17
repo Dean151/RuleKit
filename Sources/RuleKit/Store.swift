@@ -83,15 +83,25 @@ extension RuleKit {
             self.url = url
         }
 
-        func lastTrigger(of trigger: any Trigger) throws -> Date? {
+        /// Atomically decides whether a trigger may fire now and, if so, records the
+        /// fire. When `component` is non-nil the trigger is throttled: it may only
+        /// fire if at least one `component` (e.g. one day) has elapsed since the last
+        /// recorded fire. The body has no suspension point, so the actor serializes
+        /// concurrent claims and at most one claimant within a throttle window wins.
+        /// - Returns: `true` if the caller may fire the trigger; `false` if throttled.
+        func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
             try ensureLoaded()
-            return data?.lastTrigger[trigger.rawValue]
-        }
-
-        func persist(triggerOf trigger: any Trigger) throws {
-            try ensureLoaded()
-            data?.lastTrigger[trigger.rawValue] = Date()
+            let now = Date()
+            // Thank you, Dave Delong for your thoughtful advices on handling dates at NSSpain XI
+            if let component, let lastTrigger = data?.lastTrigger[trigger.rawValue],
+               let earliestNextTrigger = Calendar.current.date(byAdding: component, value: 1, to: lastTrigger),
+               earliestNextTrigger > now {
+                // We are still within the throttle window: deny the claim.
+                return false
+            }
+            data?.lastTrigger[trigger.rawValue] = now
             try saveData()
+            return true
         }
 
         func donations(for event: Event) throws -> Event.Donations {
