@@ -25,7 +25,8 @@
 //  SOFTWARE.
 //
 
-import XCTest
+import Testing
+import Foundation
 @testable import RuleKit
 
 extension RuleKit.Event {
@@ -48,6 +49,24 @@ final class FireCounter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return count
+    }
+}
+
+/// A thread-safe ordered log of trigger fires, used to assert relative firing order.
+final class FireRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var fires: [String] = []
+
+    func record(_ label: String) {
+        lock.lock()
+        fires.append(label)
+        lock.unlock()
+    }
+
+    var values: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return fires
     }
 }
 
@@ -81,18 +100,27 @@ actor FailingStore: RuleStore {
     }
 }
 
+// The public API routes through the shared `RuleKit.internal` singleton (a global
+// rule list and a single store file), so these tests are serialized and each one
+// starts from a clean rule set. The exception is `ruleClaimFailureDoesNotSuppressOtherRules`,
+// which drives its own isolated `RuleKit` instance.
+@Suite(.serialized)
 @MainActor
-final class RuleKitTests: XCTestCase {
+struct RuleKitTests {
     static let testNotification = Notification.Name("test.notification")
     static let testCallback = "test.callback"
 
-    override func setUp() async throws {
+    init() async throws {
         // Configure once; later calls throw storeAlreadyConfigured, which we ignore.
         try? RuleKit.configure(storeLocation: .applicationDefault)
+        // The rule list is global; start every test from a clean slate so rules
+        // registered by other tests cannot fire during this one.
+        RuleKit.internal.rules.removeAll()
+        await RuleKit.Event.testEvent.reset()
     }
 
-    func testNotificationRuleTriggering() async throws {
-        await RuleKit.Event.testEvent.reset()
+    @Test("A notification rule posts its notification when fulfilled")
+    func notificationRuleTriggers() async {
         RuleKit.setRule(triggering: Self.testNotification, .allOf([
             .event(.testEvent) {
                 $0.donations.count > 0
@@ -101,17 +129,23 @@ final class RuleKitTests: XCTestCase {
                 true
             }
         ]))
-        let expectation = expectation(forNotification: Self.testNotification, object: nil)
-        await RuleKit.Event.testEvent.donate()
-        await fulfillment(of: [expectation])
+
+        await confirmation("Notification is posted") { posted in
+            let token = NotificationCenter.default.addObserver(forName: Self.testNotification, object: nil, queue: nil) { _ in
+                posted()
+            }
+            defer { NotificationCenter.default.removeObserver(token) }
+            await RuleKit.Event.testEvent.donate()
+        }
+
         let count = await RuleKit.Event.testEvent.donations.count
-        XCTAssertEqual(1, count)
+        #expect(count == 1)
     }
-    
+
     @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
-    func testNotificationRuleTriggeringDelayed() async throws {
+    @Test("A delayed rule fires no sooner than its delay")
+    func delayedNotificationRuleRespectsDelay() async {
         let duration = Duration.seconds(5)
-        await RuleKit.Event.testEvent.reset()
         RuleKit.setRule(
             triggering: Self.testNotification,
             options: [.delay(for: duration)],
@@ -124,49 +158,51 @@ final class RuleKitTests: XCTestCase {
                 }
             ])
         )
-        let expectation = expectation(forNotification: Self.testNotification, object: nil)
+
         let clock = ContinuousClock()
-        let measuredDuration = await clock.measure {
-            await RuleKit.Event.testEvent.donate()
-            await fulfillment(of: [expectation])
+        let elapsed = await clock.measure {
+            await confirmation("Notification is posted after the delay") { posted in
+                let token = NotificationCenter.default.addObserver(forName: Self.testNotification, object: nil, queue: nil) { _ in
+                    posted()
+                }
+                defer { NotificationCenter.default.removeObserver(token) }
+                await RuleKit.Event.testEvent.donate()
+            }
         }
-        // Measured duration should be at least the duration in the Rule Options
-        XCTAssertTrue(measuredDuration >= duration)
+        // The measured duration should be at least the delay configured in the rule.
+        #expect(elapsed >= duration)
     }
 
     @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
-    func testParallelizedTrigger() async throws {
+    @Test("Rules are evaluated in parallel, so a rule without a delay fires first")
+    func rulesAreEvaluatedInParallel() async {
         let duration = Duration.seconds(5)
-        await RuleKit.Event.testEvent.reset()
-        
-        let delayExpectation = XCTestExpectation()
+        let recorder = FireRecorder()
+
         RuleKit.setRule("\(Self.testCallback).delayed", triggering: {
-            print("Rule with DelayOption triggered")
-            delayExpectation.fulfill()
+            recorder.record("delayed")
         }, options: [.delay(for: duration)], .anyOf([
             .event(.testEvent) {
                 $0.donations.count > 0
             }
         ]))
 
-        let expectation = XCTestExpectation()
         RuleKit.setRule("\(Self.testCallback).immediate", triggering: {
-            print("Rule without DelayOption triggered")
-            expectation.fulfill()
+            recorder.record("immediate")
         }, options: [], .anyOf([
             .event(.testEvent) {
                 $0.donations.count > 0
             }
         ]))
-        
+
+        // `donate` awaits the whole task group, so both rules have fired by the time
+        // it returns; the rule without the delay option must have fired first.
         await RuleKit.Event.testEvent.donate()
-        // If the rules are checked in parallel, then the rule without delay option should
-        // get triggered before the rule with the delay option.
-        await fulfillment(of: [expectation, delayExpectation], enforceOrder: true)
+        #expect(recorder.values == ["immediate", "delayed"])
     }
 
-    func testNotificationRuleTriggeringResultBuilder() async throws {
-        await RuleKit.Event.testEvent.reset()
+    @Test("A notification rule built with the result builder posts its notification")
+    func notificationRuleTriggersWithResultBuilder() async {
         RuleKit.setRule(triggering: Self.testNotification, .allOf {
             EventRule(event: .testEvent) {
                 $0.donations.count > 0
@@ -175,55 +211,57 @@ final class RuleKitTests: XCTestCase {
                 true
             }
         })
-        let expectation = expectation(forNotification: Self.testNotification, object: nil)
-        await RuleKit.Event.testEvent.donate()
-        await fulfillment(of: [expectation])
+
+        await confirmation("Notification is posted") { posted in
+            let token = NotificationCenter.default.addObserver(forName: Self.testNotification, object: nil, queue: nil) { _ in
+                posted()
+            }
+            defer { NotificationCenter.default.removeObserver(token) }
+            await RuleKit.Event.testEvent.donate()
+        }
+
         let count = await RuleKit.Event.testEvent.donations.count
-        XCTAssertEqual(1, count)
+        #expect(count == 1)
     }
 
-    func testCallbackRuleTriggering() async throws {
-        await RuleKit.Event.testEvent.reset()
-        let expectation = XCTestExpectation()
+    @Test("A callback rule invokes its callback when fulfilled")
+    func callbackRuleTriggers() async {
+        let counter = FireCounter()
         RuleKit.setRule(Self.testCallback, triggering: {
-            expectation.fulfill()
+            counter.increment()
         }, .anyOf([
             .event(.testEvent) {
                 $0.donations.count > 0
             }
         ]))
+
         await RuleKit.Event.testEvent.donate()
-        await fulfillment(of: [expectation])
+
+        #expect(counter.value == 1)
         let count = await RuleKit.Event.testEvent.donations.count
-        XCTAssertEqual(1, count)
+        #expect(count == 1)
     }
 
-    func testCallbackRuleTriggeringResultBuilder() async throws {
-        await RuleKit.Event.testEvent.reset()
-        let expectation = XCTestExpectation()
+    @Test("A callback rule built with the result builder invokes its callback")
+    func callbackRuleTriggersWithResultBuilder() async {
+        let counter = FireCounter()
         RuleKit.setRule(Self.testCallback, triggering: {
-            expectation.fulfill()
+            counter.increment()
         }, .anyOf {
             EventRule(event: .testEvent) {
                 $0.donations.count > 0
             }
         })
+
         await RuleKit.Event.testEvent.donate()
-        await fulfillment(of: [expectation])
+
+        #expect(counter.value == 1)
         let count = await RuleKit.Event.testEvent.donations.count
-        XCTAssertEqual(1, count)
+        #expect(count == 1)
     }
 
-    /// Findings 2–4: under concurrent donations, the `.triggerFrequency` throttle is
-    /// a check-then-act race. The frequency gate reads `lastTrigger` inside the rule
-    /// evaluation, but the trigger is only *recorded* after firing and after several
-    /// suspension points. Many concurrent donations can all read a stale (nil)
-    /// `lastTrigger`, pass the gate, and fire — so a `.daily`-throttled rule fires
-    /// more than once.
-    ///
-    /// Expected behaviour: exactly one fire. This test is expected to FAIL today,
-    /// demonstrating the TOCTOU race; it should pass once trigger claiming is atomic.
-    func testConcurrentDonationsRespectTriggerFrequency() async throws {
+    @Test("A frequency throttle fires exactly once under concurrent donations")
+    func concurrentDonationsRespectTriggerFrequency() async {
         // Unique event + rule name so a previous run's persisted `lastTrigger`
         // (which `reset()` does not clear) cannot throttle this run, and so no
         // other registered rule listens to this event.
@@ -239,7 +277,8 @@ final class RuleKitTests: XCTestCase {
             .event(event) { $0.donations.count > 0 }
         )
 
-        // Fire many donations concurrently to widen the race window.
+        // Fire many donations concurrently; each `donate` awaits its own firing,
+        // so once the group completes every fire has happened.
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<50 {
                 group.addTask {
@@ -248,24 +287,14 @@ final class RuleKitTests: XCTestCase {
             }
         }
 
-        // Triggers are dispatched fire-and-forget onto a DispatchQueue (default
-        // `.main`), so the task group can complete before they actually run.
-        // Yield the main thread long enough for the dispatched blocks to drain.
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-        let fires = counter.value
-        XCTAssertEqual(
-            fires,
-            1,
-            "Expected exactly one fire under a daily throttle regardless of concurrency, but the trigger fired \(fires) times (TOCTOU race in trigger gating)."
+        #expect(
+            counter.value == 1,
+            "Expected exactly one fire under a daily throttle regardless of concurrency."
         )
     }
 
-    /// Finding 3: a single rule's claim failure must not suppress sibling rules.
-    /// Two rules are evaluated in the same donation; one rule's trigger fails to be
-    /// claimed (simulated disk error). The healthy rule must still fire — it would
-    /// not if the failure cancelled the whole task group.
-    func testRuleClaimFailureDoesNotSuppressOtherRules() async throws {
+    @Test("A rule whose claim fails does not suppress its sibling rules")
+    func ruleClaimFailureDoesNotSuppressOtherRules() async {
         let failingName = "test.finding3.failing"
         let healthyName = "test.finding3.healthy"
 
@@ -285,12 +314,10 @@ final class RuleKitTests: XCTestCase {
             trigger: CallbackTrigger(rawValue: healthyName, callback: { healthyCounter.increment() })
         )
 
+        // `donate` awaits firing, so the healthy rule has fired by the time it returns.
         await kit.donate("test.finding3.event")
 
-        // Let the dispatched trigger callbacks drain.
-        try await Task.sleep(nanoseconds: 500_000_000)
-
-        XCTAssertEqual(healthyCounter.value, 1, "The healthy rule must fire even though a sibling rule's claim failed.")
-        XCTAssertEqual(failingCounter.value, 0, "The rule whose claim threw must not fire.")
+        #expect(healthyCounter.value == 1, "The healthy rule must fire even though a sibling rule's claim failed.")
+        #expect(failingCounter.value == 0, "The rule whose claim threw must not fire.")
     }
 }
