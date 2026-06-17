@@ -1,0 +1,28 @@
+name: Linux CI
+
+on:
+  push:
+    paths-ignore:
+      - "README.md"
+      - "Sources/**/*.docc/**"
+  pull_request:
+    paths-ignore:
+      - "README.md"
+      - "Sources/**/*.docc/**"
+  workflow_dispatch:
+
+jobs:
+  swift-tests:
+    name: Swift Tests (Swift ${{ matrix.swift }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        swift: ["6.3"]
+    container:
+      image: swift:${{ matrix.swift }}-noble
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Run tests
+        run: swift test
