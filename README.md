@@ -78,11 +78,11 @@ struct ContentView: View {
 - Register your business rules that should trigger your closure, or your notification
 ```swift
 RuleKit.setRule(
-    triggering: requestReviewNotification, 
+    triggering: .requestReviewPrompt, 
     options: [.triggerFrequency(.monthly)], 
     .allOf([
         .event(.promptAttempt) {
-            $0.donations.last?.version != .current
+            $0.donations.last?.appVersion != .current
         },
         .anyOf([
             .event(.entityCreated) { _ in
