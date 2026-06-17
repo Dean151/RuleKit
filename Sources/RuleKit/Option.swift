@@ -100,14 +100,13 @@ extension RuleKitOption where Self == DispatchQueueOption {
 
 public struct DelayOption: RuleKitOption {
     let sleeper: any Sleeper
-    
-    public func preventRuleFulfillment(for trigger: any Trigger) async -> Bool {
-        do {
-            try await sleeper.sleep()
-            return false
-        } catch {
-            return true
-        }
+
+    // The delay is not applied during rule evaluation: it is applied at fire
+    // time, after the trigger has been claimed, so a throttled rule is skipped
+    // immediately instead of waiting out the delay only to be denied. Throws on
+    // cancellation, in which case the trigger is not fired.
+    func wait() async throws {
+        try await sleeper.sleep()
     }
 }
 

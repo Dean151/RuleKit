@@ -80,9 +80,24 @@ public final class RuleKit {
                         logger.error("Claiming trigger \(trigger.rawValue) failed with error: \(error)")
                         return
                     }
+                    // Apply any delay only after the trigger is claimed, so the
+                    // actual firing is delayed while throttled rules are skipped
+                    // immediately. A cancelled delay skips firing this time.
+                    if let delay = rule.firstOption(ofType: DelayOption.self) {
+                        do {
+                            try await delay.wait()
+                        } catch {
+                            return
+                        }
+                    }
+                    // Fire on the chosen queue and await the execution, so this
+                    // structured task does not complete before the trigger has run.
                     let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
-                    queue.async {
-                        trigger.execute()
+                    await withCheckedContinuation { continuation in
+                        queue.async {
+                            trigger.execute()
+                            continuation.resume()
+                        }
                     }
                 }
             }
