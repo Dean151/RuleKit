@@ -86,10 +86,9 @@ final class RuleKitTests: XCTestCase {
     static let testNotification = Notification.Name("test.notification")
     static let testCallback = "test.callback"
 
-    override class func setUp() {
-        do {
-            try RuleKit.configure(storeLocation: .applicationDefault)
-        } catch {}
+    override func setUp() async throws {
+        // Configure once; later calls throw storeAlreadyConfigured, which we ignore.
+        try? RuleKit.configure(storeLocation: .applicationDefault)
     }
 
     func testNotificationRuleTriggering() async throws {
