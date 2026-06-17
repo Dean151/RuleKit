@@ -114,7 +114,12 @@ public final class RuleKit {
                 await self?.finishPendingTrigger(id)
                 return
             }
-            await RuleKit.claimAndFire(rule: rule, trigger: trigger, throttle: throttle, store: store, logger: logger)
+            // Re-evaluate the rule after the delay: the world may have changed while
+            // waiting (e.g. the user already did the thing the trigger was about), so
+            // a rule that is no longer fulfilled must not fire.
+            if await rule.isFulfilled {
+                await RuleKit.claimAndFire(rule: rule, trigger: trigger, throttle: throttle, store: store, logger: logger)
+            }
             await self?.finishPendingTrigger(id)
         }
         pendingTriggers[id] = task

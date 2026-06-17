@@ -148,6 +148,31 @@ struct ThrowingSleeper: Sleeper {
     }
 }
 
+/// A thread-safe boolean flag. Legitimate `@unchecked Sendable`: the lock
+/// serializes all access.
+final class AtomicFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag: Bool
+
+    init(_ value: Bool) {
+        self.flag = value
+    }
+
+    var value: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return flag }
+        set { lock.lock(); flag = newValue; lock.unlock() }
+    }
+}
+
+/// A sleeper that flips a flag false while "sleeping", simulating the world
+/// changing during a delay so the rule's condition no longer holds afterwards.
+struct FlippingSleeper: Sleeper {
+    let flag: AtomicFlag
+    func sleep() async throws {
+        flag.value = false
+    }
+}
+
 // The public API routes through the shared `RuleKit.internal` singleton (a global
 // rule list and a single store file), so these tests are serialized and each one
 // starts from a clean rule set. The exception is `ruleClaimFailureDoesNotSuppressOtherRules`,
@@ -442,5 +467,31 @@ struct RuleKitTests {
             await store.claimCount == 0,
             "An interrupted delay must not claim the trigger, so its throttle window stays open."
         )
+    }
+
+    @Test("A rule whose condition becomes false during its delay does not fire")
+    func conditionRecheckedAfterDelay() async {
+        let store = SpyStore()
+        let kit = RuleKit(store: store)
+        let counter = FireCounter()
+        let condition = AtomicFlag(true)
+        let trigger = CallbackTrigger(rawValue: "test.recheck", callback: { counter.increment() })
+
+        // The condition is true when the rule is first evaluated, but the delay
+        // flips it false before the (post-delay) re-check.
+        kit.register(
+            rule: RuleWithOptions(
+                options: [DelayOption(sleeper: FlippingSleeper(flag: condition))],
+                trigger: trigger,
+                rule: ConditionRule { condition.value }
+            ),
+            trigger: trigger
+        )
+
+        await kit.donate("test.recheck.event")
+        await kit.waitForPendingTriggers()
+
+        #expect(counter.value == 0, "A rule no longer fulfilled after its delay must not fire.")
+        #expect(await store.claimCount == 0, "A rule that fails the post-delay re-check must not be claimed.")
     }
 }
