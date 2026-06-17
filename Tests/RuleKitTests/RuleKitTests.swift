@@ -111,7 +111,7 @@ final class RuleKitTests: XCTestCase {
         await RuleKit.Event.testEvent.reset()
         
         let delayExpectation = XCTestExpectation()
-        RuleKit.setRule(Self.testCallback, triggering: {
+        RuleKit.setRule("\(Self.testCallback).delayed", triggering: {
             print("Rule with DelayOption triggered")
             delayExpectation.fulfill()
         }, options: [.delay(for: duration)], .anyOf([
@@ -119,9 +119,9 @@ final class RuleKitTests: XCTestCase {
                 $0.donations.count > 0
             }
         ]))
-        
+
         let expectation = XCTestExpectation()
-        RuleKit.setRule(Self.testCallback, triggering: {
+        RuleKit.setRule("\(Self.testCallback).immediate", triggering: {
             print("Rule without DelayOption triggered")
             expectation.fulfill()
         }, options: [], .anyOf([
