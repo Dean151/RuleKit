@@ -28,8 +28,7 @@
 import Foundation
 
 extension RuleKit {
-    @MainActor
-    public class Store {
+    public actor Store {
         enum Error: Swift.Error {
             case missingGroupIdentifier
             case storeAlreadyConfigured
@@ -69,7 +68,6 @@ extension RuleKit {
                 }
             }
 
-            @MainActor
             func createStore() throws -> Store {
                 var url = try self.url
                 url.appendPathComponent("RuleKitEvents.plist")
@@ -86,33 +84,51 @@ extension RuleKit {
         }
 
         func lastTrigger(of trigger: any Trigger) throws -> Date? {
-            if data == nil {
-                try loadData()
-            }
+            try ensureLoaded()
             return data?.lastTrigger[trigger.rawValue]
         }
 
         func persist(triggerOf trigger: any Trigger) throws {
-            if data == nil {
-                try loadData()
-            }
+            try ensureLoaded()
             data?.lastTrigger[trigger.rawValue] = Date()
             try saveData()
         }
 
         func donations(for event: Event) throws -> Event.Donations {
-            if data == nil {
-                try loadData()
-            }
+            try ensureLoaded()
             return data?.donations[event.rawValue] ?? .empty
         }
 
         func persist(_ donations: Event.Donations, for event: Event) throws {
+            try ensureLoaded()
+            data?.donations[event.rawValue] = donations
+            try saveData()
+        }
+
+        /// Atomically increments the donation count for an event and persists it,
+        /// returning the resulting donations. The body has no suspension point, so
+        /// the actor runs it to completion without interleaving — concurrent
+        /// donations cannot lose an update.
+        @discardableResult
+        func incrementDonation(for event: Event) throws -> Event.Donations {
+            try ensureLoaded()
+            let previous = data?.donations[event.rawValue] ?? .empty
+            // Must be implemented once: it might be used twice (and end up having different dates)
+            let donation = Event.Donation.now
+            let donations = Event.Donations(
+                count: previous.count + 1,
+                first: previous.first ?? donation,
+                last: donation
+            )
+            data?.donations[event.rawValue] = donations
+            try saveData()
+            return donations
+        }
+
+        private func ensureLoaded() throws {
             if data == nil {
                 try loadData()
             }
-            data?.donations[event.rawValue] = donations
-            try saveData()
         }
 
         private func loadData() throws {
