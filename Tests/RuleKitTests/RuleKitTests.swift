@@ -162,8 +162,10 @@ struct RuleKitTests {
         // Configure once; later calls throw storeAlreadyConfigured, which we ignore.
         try? RuleKit.configure(storeLocation: .applicationDefault)
         // The rule list is global; start every test from a clean slate so rules
-        // registered by other tests cannot fire during this one.
+        // registered by other tests cannot fire during this one. Also cancel any
+        // delayed triggers a previous test left pending.
         RuleKit.internal.rules.removeAll()
+        RuleKit.internal.cancelPendingTriggers()
         await RuleKit.Event.testEvent.reset()
     }
 
@@ -215,6 +217,8 @@ struct RuleKitTests {
                 }
                 defer { NotificationCenter.default.removeObserver(token) }
                 await RuleKit.Event.testEvent.donate()
+                // The delayed trigger fires detached from the donation; wait for it.
+                await RuleKit.internal.waitForPendingTriggers()
             }
         }
         // The measured duration should be at least the delay configured in the rule.
@@ -243,10 +247,37 @@ struct RuleKitTests {
             }
         ]))
 
-        // `donate` awaits the whole task group, so both rules have fired by the time
-        // it returns; the rule without the delay option must have fired first.
+        // The immediate rule fires within the donation's structured task group, so
+        // it has fired by the time `donate` returns. The delayed rule fires detached;
+        // wait for it. The immediate rule must therefore be recorded first.
         await RuleKit.Event.testEvent.donate()
+        await RuleKit.internal.waitForPendingTriggers()
         #expect(recorder.values == ["immediate", "delayed"])
+    }
+
+    @available(macOS 13.0, iOS 16.0, watchOS 9.0, tvOS 16.0, *)
+    @Test("Donating does not block on a delayed rule")
+    func donatingDoesNotBlockOnDelay() async {
+        let duration = Duration.seconds(60)
+        let counter = FireCounter()
+        RuleKit.setRule(
+            "\(Self.testCallback).slow",
+            triggering: { counter.increment() },
+            options: [.delay(for: duration)],
+            .event(.testEvent) {
+                $0.donations.count > 0
+            }
+        )
+
+        let clock = ContinuousClock()
+        let elapsed = await clock.measure {
+            await RuleKit.Event.testEvent.donate()
+        }
+
+        // `donate` must return promptly rather than waiting out the 60s delay.
+        #expect(elapsed < .seconds(5))
+        #expect(counter.value == 0, "The delayed trigger must not have fired by the time donate returns.")
+        // The pending 60s trigger is cancelled by the next test's setUp.
     }
 
     @Test("A notification rule built with the result builder posts its notification")
@@ -404,6 +435,7 @@ struct RuleKitTests {
         )
 
         await kit.donate("test.interrupted.delay.event")
+        await kit.waitForPendingTriggers()
 
         #expect(counter.value == 0, "An interrupted delay must not fire the trigger.")
         #expect(

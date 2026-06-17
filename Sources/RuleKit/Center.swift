@@ -46,6 +46,11 @@ public final class RuleKit {
 
     var rules: [(rule: any Rule, trigger: any Trigger)] = []
 
+    /// Delayed triggers whose delay is still running. They fire detached from the
+    /// donation that scheduled them, so donating never blocks on a rule's delay.
+    /// Keyed so each task can remove itself once it finishes.
+    var pendingTriggers: [UUID: Task<Void, Never>] = [:]
+
     init(store: (any RuleStore)? = nil) {
         self._store = store
     }
@@ -63,57 +68,99 @@ public final class RuleKit {
         }
         await withTaskGroup(of: Void.self) { [store, logger] group in
             for (rule, trigger) in rules {
-                group.addTask {
+                group.addTask { [weak self] in
                     guard await rule.isFulfilled else {
                         return
                     }
                     let throttle = rule.firstOption(ofType: TriggerFrequencyOption.self)?.frequency.component
-                    if let delay = rule.firstOption(ofType: DelayOption.self) {
-                        // Skip a rule that is already throttled before waiting out its
-                        // delay (cheap, non-authoritative; the claim below re-checks
-                        // atomically), so throttled rules are still dropped immediately.
-                        do {
-                            if try await store.isThrottled(for: trigger, notBefore: throttle) {
-                                return
-                            }
-                        } catch {
-                            logger.error("Reading throttle for trigger \(trigger.rawValue) failed with error: \(error)")
-                            return
-                        }
-                        // Apply the delay before claiming. A cancelled delay (task
-                        // cancellation, or the app being killed mid-delay) then leaves
-                        // the throttle window untouched instead of consuming it without
-                        // ever firing.
-                        do {
-                            try await delay.wait()
-                        } catch {
-                            return
-                        }
+                    guard let delay = rule.firstOption(ofType: DelayOption.self) else {
+                        // No delay: claim and fire within the donation's structured
+                        // task group, so the donation reflects an immediate trigger.
+                        await RuleKit.claimAndFire(rule: rule, trigger: trigger, throttle: throttle, store: store, logger: logger)
+                        return
                     }
-                    // Atomically claim the trigger: this records the fire and enforces
-                    // any frequency throttle in a single step, so concurrent donations
-                    // cannot race between checking the throttle and recording the fire
-                    // and thus both fire.
+                    // Skip a rule that is already throttled before waiting out its
+                    // delay (cheap, non-authoritative; the claim later re-checks
+                    // atomically), so throttled rules are still dropped immediately.
                     do {
-                        guard try await store.claimTrigger(for: trigger, notBefore: throttle) else {
+                        if try await store.isThrottled(for: trigger, notBefore: throttle) {
                             return
                         }
                     } catch {
-                        // Isolate per-rule failures: a claim error (e.g. disk I/O)
-                        // must skip only this rule, not cancel sibling rules in the group.
-                        logger.error("Claiming trigger \(trigger.rawValue) failed with error: \(error)")
+                        logger.error("Reading throttle for trigger \(trigger.rawValue) failed with error: \(error)")
                         return
                     }
-                    // Fire on the chosen queue and await the execution, so this
-                    // structured task does not complete before the trigger has run.
-                    let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
-                    await withCheckedContinuation { continuation in
-                        queue.async {
-                            trigger.execute()
-                            continuation.resume()
-                        }
-                    }
+                    // A delayed trigger fires detached from this donation, so donating
+                    // never blocks on the delay. The claim still happens after the
+                    // delay (see `claimAndFire`), keeping the throttle window intact if
+                    // the delay is interrupted.
+                    await self?.scheduleDelayedTrigger(rule: rule, trigger: trigger, delay: delay, throttle: throttle, store: store)
                 }
+            }
+        }
+    }
+
+    /// Spawns a detached task that waits out `delay` and then claims and fires the
+    /// trigger. The task is tracked in `pendingTriggers` and removes itself when done.
+    private func scheduleDelayedTrigger(rule: any Rule, trigger: any Trigger, delay: DelayOption, throttle: Calendar.Component?, store: any RuleStore) {
+        let id = UUID()
+        let logger = self.logger
+        let task = Task.detached(priority: .utility) { [weak self] in
+            // A cancelled delay (task cancellation, or the app being killed mid-delay)
+            // leaves the throttle window untouched because nothing is claimed.
+            do {
+                try await delay.wait()
+            } catch {
+                await self?.finishPendingTrigger(id)
+                return
+            }
+            await RuleKit.claimAndFire(rule: rule, trigger: trigger, throttle: throttle, store: store, logger: logger)
+            await self?.finishPendingTrigger(id)
+        }
+        pendingTriggers[id] = task
+    }
+
+    private func finishPendingTrigger(_ id: UUID) {
+        pendingTriggers[id] = nil
+    }
+
+    /// Awaits every not-yet-fired delayed trigger. Intended for tests that need to
+    /// observe a delayed trigger's effect deterministically.
+    func waitForPendingTriggers() async {
+        for task in Array(pendingTriggers.values) {
+            await task.value
+        }
+    }
+
+    /// Cancels and forgets every pending delayed trigger.
+    func cancelPendingTriggers() {
+        for task in pendingTriggers.values {
+            task.cancel()
+        }
+        pendingTriggers.removeAll()
+    }
+
+    /// Atomically claims the trigger and, if the claim succeeds, fires it on the
+    /// configured queue. Awaits the execution so callers can observe completion.
+    private static func claimAndFire(rule: any Rule, trigger: any Trigger, throttle: Calendar.Component?, store: any RuleStore, logger: Logger) async {
+        // Atomically claim the trigger: this records the fire and enforces any
+        // frequency throttle in a single step, so concurrent donations cannot race
+        // between checking the throttle and recording the fire and thus both fire.
+        do {
+            guard try await store.claimTrigger(for: trigger, notBefore: throttle) else {
+                return
+            }
+        } catch {
+            // Isolate per-rule failures: a claim error (e.g. disk I/O) must skip
+            // only this rule, not cancel sibling rules.
+            logger.error("Claiming trigger \(trigger.rawValue) failed with error: \(error)")
+            return
+        }
+        let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
+        await withCheckedContinuation { continuation in
+            queue.async {
+                trigger.execute()
+                continuation.resume()
             }
         }
     }
