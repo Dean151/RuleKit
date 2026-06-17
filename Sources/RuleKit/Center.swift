@@ -55,8 +55,11 @@ public final class RuleKit {
         _store = try storeLocation.createStore()
     }
 
-    func triggerFulfilledRules() async throws {
-        try await withThrowingTaskGroup(of: Void.self) { [store] group in
+    func triggerFulfilledRules() async {
+        guard let store = try? store else {
+            return
+        }
+        await withTaskGroup(of: Void.self) { [store, logger] group in
             for (rule, trigger) in rules {
                 group.addTask {
                     guard await rule.isFulfilled else {
@@ -67,7 +70,14 @@ public final class RuleKit {
                     // concurrent donations cannot race between checking the throttle
                     // and recording the fire and thus both fire.
                     let throttle = rule.firstOption(ofType: TriggerFrequencyOption.self)?.frequency.component
-                    guard try await store.claimTrigger(for: trigger, notBefore: throttle) else {
+                    do {
+                        guard try await store.claimTrigger(for: trigger, notBefore: throttle) else {
+                            return
+                        }
+                    } catch {
+                        // Isolate per-rule failures: a claim error (e.g. disk I/O)
+                        // must skip only this rule, not cancel sibling rules in the group.
+                        logger.error("Claiming trigger \(trigger.rawValue) failed with error: \(error)")
                         return
                     }
                     let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
@@ -86,7 +96,7 @@ public final class RuleKit {
     func donate(_ event: Event) async {
         do {
             try await store.incrementDonation(for: event)
-            try await triggerFulfilledRules()
+            await triggerFulfilledRules()
         } catch {
             logger.error("Donation failed for event \(event.rawValue) with error: \(error)")
         }
