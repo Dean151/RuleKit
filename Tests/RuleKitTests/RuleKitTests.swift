@@ -26,7 +26,7 @@
 //
 
 import XCTest
-import RuleKit
+@testable import RuleKit
 
 extension RuleKit.Event {
     static let testEvent: Self = "test.event"
@@ -48,6 +48,36 @@ final class FireCounter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return count
+    }
+}
+
+/// A store whose `claimTrigger` throws for one specific trigger name and succeeds
+/// for all others, so a single rule's claim failure can be simulated in isolation.
+actor FailingStore: RuleStore {
+    struct InjectedError: Error {}
+
+    let failingTriggerName: String
+
+    init(failingTriggerName: String) {
+        self.failingTriggerName = failingTriggerName
+    }
+
+    @discardableResult
+    func incrementDonation(for event: RuleKit.Event) throws -> RuleKit.Event.Donations {
+        .empty
+    }
+
+    func donations(for event: RuleKit.Event) throws -> RuleKit.Event.Donations {
+        .empty
+    }
+
+    func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) throws {}
+
+    func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+        if trigger.rawValue == failingTriggerName {
+            throw InjectedError()
+        }
+        return true
     }
 }
 
@@ -230,5 +260,38 @@ final class RuleKitTests: XCTestCase {
             1,
             "Expected exactly one fire under a daily throttle regardless of concurrency, but the trigger fired \(fires) times (TOCTOU race in trigger gating)."
         )
+    }
+
+    /// Finding 3: a single rule's claim failure must not suppress sibling rules.
+    /// Two rules are evaluated in the same donation; one rule's trigger fails to be
+    /// claimed (simulated disk error). The healthy rule must still fire — it would
+    /// not if the failure cancelled the whole task group.
+    func testRuleClaimFailureDoesNotSuppressOtherRules() async throws {
+        let failingName = "test.finding3.failing"
+        let healthyName = "test.finding3.healthy"
+
+        // Drive a dedicated RuleKit instance with an injected failing store, so the
+        // rules' fulfillment does not depend on the shared singleton's store.
+        let kit = RuleKit(store: FailingStore(failingTriggerName: failingName))
+
+        let failingCounter = FireCounter()
+        let healthyCounter = FireCounter()
+
+        kit.register(
+            rule: ConditionRule { true },
+            trigger: CallbackTrigger(rawValue: failingName, callback: { failingCounter.increment() })
+        )
+        kit.register(
+            rule: ConditionRule { true },
+            trigger: CallbackTrigger(rawValue: healthyName, callback: { healthyCounter.increment() })
+        )
+
+        await kit.donate("test.finding3.event")
+
+        // Let the dispatched trigger callbacks drain.
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        XCTAssertEqual(healthyCounter.value, 1, "The healthy rule must fire even though a sibling rule's claim failed.")
+        XCTAssertEqual(failingCounter.value, 0, "The rule whose claim threw must not fire.")
     }
 }

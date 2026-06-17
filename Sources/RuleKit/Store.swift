@@ -27,6 +27,18 @@
 
 import Foundation
 
+/// The persistence operations RuleKit depends on. Abstracted so the store can be
+/// substituted (e.g. in tests). `RuleKit.Store` is the production implementation.
+protocol RuleStore: Sendable {
+    @discardableResult
+    func incrementDonation(for event: RuleKit.Event) async throws -> RuleKit.Event.Donations
+    func donations(for event: RuleKit.Event) async throws -> RuleKit.Event.Donations
+    func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) async throws
+    func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) async throws -> Bool
+}
+
+extension RuleKit.Store: RuleStore {}
+
 extension RuleKit {
     public actor Store {
         enum Error: Swift.Error {

@@ -34,8 +34,8 @@ public final class RuleKit {
 
     let logger = Logger(subsystem: "RuleKit", category: "logs")
 
-    private var _store: Store?
-    var store: Store {
+    private var _store: (any RuleStore)?
+    var store: any RuleStore {
         get throws {
             guard let _store else {
                 throw Store.Error.storeNotInitialized
@@ -46,7 +46,9 @@ public final class RuleKit {
 
     var rules: [(rule: any Rule, trigger: any Trigger)] = []
 
-    private init() {}
+    init(store: (any RuleStore)? = nil) {
+        self._store = store
+    }
 
     func configure(storeLocation: Store.Location) throws {
         guard _store == nil else {
