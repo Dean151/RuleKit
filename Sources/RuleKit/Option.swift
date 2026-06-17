@@ -26,6 +26,7 @@
 //
 
 import Foundation
+import Dispatch
 
 public protocol RuleKitOption: Sendable {
     /// If this returns true, the rule will never be fulfilled, and the notification prevented
@@ -90,7 +91,7 @@ public struct DispatchQueueOption: RuleKitOption {
 
 extension RuleKitOption where Self == DispatchQueueOption {
     /// Publish the notification on a specific dispatch queue.
-    /// By default, notification will be sent on the main queue.
+    /// By default, the notification is sent on the main actor.
     public static func dispatchQueue(_ queue: DispatchQueue) -> RuleKitOption {
         DispatchQueueOption(queue: queue)
     }

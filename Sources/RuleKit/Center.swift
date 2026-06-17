@@ -26,13 +26,14 @@
 //
 
 import Foundation
-import OSLog
+import Dispatch
+import Logging
 
 @MainActor
 public final class RuleKit {
     static var `internal` = RuleKit()
 
-    let logger = Logger(subsystem: "RuleKit", category: "logs")
+    let logger = Logger(label: "RuleKit")
 
     private var _store: (any RuleStore)?
     var store: any RuleStore {
@@ -145,8 +146,11 @@ public final class RuleKit {
         pendingTriggers.removeAll()
     }
 
-    /// Atomically claims the trigger and, if the claim succeeds, fires it on the
-    /// configured queue. Awaits the execution so callers can observe completion.
+    /// Atomically claims the trigger and, if the claim succeeds, fires it. Awaits the
+    /// execution so callers can observe completion. With an explicit `DispatchQueue`
+    /// option the trigger fires on that queue; otherwise it fires on the main actor
+    /// (which, unlike `DispatchQueue.main`, is serviced by the concurrency runtime on
+    /// every platform, so it does not rely on a running main run loop on Linux).
     private static func claimAndFire(rule: any Rule, trigger: any Trigger, throttle: Calendar.Component?, store: any RuleStore, logger: Logger) async {
         // Atomically claim the trigger: this records the fire and enforces any
         // frequency throttle in a single step, so concurrent donations cannot race
@@ -161,11 +165,16 @@ public final class RuleKit {
             logger.error("Claiming trigger \(trigger.rawValue) failed with error: \(error)")
             return
         }
-        let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue ?? .main
-        await withCheckedContinuation { continuation in
-            queue.async {
+        if let queue = rule.firstOption(ofType: DispatchQueueOption.self)?.queue {
+            await withCheckedContinuation { continuation in
+                queue.async {
+                    trigger.execute()
+                    continuation.resume()
+                }
+            }
+        } else {
+            await MainActor.run {
                 trigger.execute()
-                continuation.resume()
             }
         }
     }
@@ -197,7 +206,7 @@ public final class RuleKit {
             // appending. This keeps registration idempotent (e.g. calling setRule on
             // every view appearance no longer grows the rule list without bound) and
             // avoids two rules silently sharing one trigger record and throttle.
-            logger.warning("Replacing the rule already registered for trigger name \"\(trigger.rawValue, privacy: .public)\".")
+            logger.warning("Replacing the rule already registered for trigger name \"\(trigger.rawValue)\".")
             rules[index] = (rule, trigger)
         } else {
             rules.append((rule, trigger))
