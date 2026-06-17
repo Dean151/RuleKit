@@ -32,6 +32,25 @@ extension RuleKit.Event {
     static let testEvent: Self = "test.event"
 }
 
+/// A thread-safe counter for tallying how many times a trigger actually fired.
+/// Legitimate `@unchecked Sendable`: all access is serialized by the lock.
+final class FireCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    func increment() {
+        lock.lock()
+        count += 1
+        lock.unlock()
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+}
+
 @MainActor
 final class RuleKitTests: XCTestCase {
     static let testNotification = Notification.Name("test.notification")
@@ -164,5 +183,52 @@ final class RuleKitTests: XCTestCase {
         await fulfillment(of: [expectation])
         let count = await RuleKit.Event.testEvent.donations.count
         XCTAssertEqual(1, count)
+    }
+
+    /// Findings 2–4: under concurrent donations, the `.triggerFrequency` throttle is
+    /// a check-then-act race. The frequency gate reads `lastTrigger` inside the rule
+    /// evaluation, but the trigger is only *recorded* after firing and after several
+    /// suspension points. Many concurrent donations can all read a stale (nil)
+    /// `lastTrigger`, pass the gate, and fire — so a `.daily`-throttled rule fires
+    /// more than once.
+    ///
+    /// Expected behaviour: exactly one fire. This test is expected to FAIL today,
+    /// demonstrating the TOCTOU race; it should pass once trigger claiming is atomic.
+    func testConcurrentDonationsRespectTriggerFrequency() async throws {
+        // Unique event + rule name so a previous run's persisted `lastTrigger`
+        // (which `reset()` does not clear) cannot throttle this run, and so no
+        // other registered rule listens to this event.
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.concurrent.event.\(runID)")
+        let ruleName = "test.concurrent.rule.\(runID)"
+
+        let counter = FireCounter()
+        RuleKit.setRule(
+            ruleName,
+            triggering: { counter.increment() },
+            options: [.triggerFrequency(.daily)],
+            .event(event) { $0.donations.count > 0 }
+        )
+
+        // Fire many donations concurrently to widen the race window.
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<50 {
+                group.addTask {
+                    await event.donate()
+                }
+            }
+        }
+
+        // Triggers are dispatched fire-and-forget onto a DispatchQueue (default
+        // `.main`), so the task group can complete before they actually run.
+        // Yield the main thread long enough for the dispatched blocks to drain.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+
+        let fires = counter.value
+        XCTAssertEqual(
+            fires,
+            1,
+            "Expected exactly one fire under a daily throttle regardless of concurrency, but the trigger fired \(fires) times (TOCTOU race in trigger gating)."
+        )
     }
 }
