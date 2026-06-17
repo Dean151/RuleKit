@@ -293,6 +293,23 @@ struct RuleKitTests {
         )
     }
 
+    @Test("A file-scheme directory URL is accepted as a store location")
+    func urlStoreLocationAcceptsDirectory() throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        let location = RuleKit.Store.Location.url(directory)
+        let resolved = try location.url
+        #expect(resolved == directory)
+    }
+
+    @Test("A non-directory URL is rejected as a store location")
+    func urlStoreLocationRejectsNonDirectory() {
+        let file = URL(fileURLWithPath: "\(NSTemporaryDirectory())RuleKitNotADirectory", isDirectory: false)
+        let location = RuleKit.Store.Location.url(file)
+        #expect(throws: RuleKit.Store.Error.self) {
+            _ = try location.url
+        }
+    }
+
     @Test("A rule whose claim fails does not suppress its sibling rules")
     func ruleClaimFailureDoesNotSuppressOtherRules() async {
         let failingName = "test.finding3.failing"

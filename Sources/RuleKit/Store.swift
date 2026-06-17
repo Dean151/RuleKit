@@ -72,7 +72,11 @@ extension RuleKit {
                         }
                         return url
                     case .url(let url):
-                        guard url.hasDirectoryPath && !url.isFileURL else {
+                        // The store writes a plist on disk, so the location must be a
+                        // file-scheme directory URL. (`isFileURL` is true for any
+                        // on-disk directory; the previous `!isFileURL` rejected every
+                        // valid local directory.)
+                        guard url.isFileURL && url.hasDirectoryPath else {
                             throw Error.storeUrlIsNotDirectory
                         }
                         return url
