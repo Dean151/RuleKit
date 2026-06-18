@@ -9,8 +9,16 @@ let package = Package(
     products: [
         .library(name: "RuleKit", targets: ["RuleKit"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.7.0"),
+    ],
     targets: [
-        .target(name: "RuleKit"),
+        .target(
+            name: "RuleKit",
+            dependencies: [
+                .product(name: "Logging", package: "swift-log"),
+            ]
+        ),
         .testTarget(name: "RuleKitTests", dependencies: ["RuleKit"]),
     ],
     swiftLanguageModes: [.v6]

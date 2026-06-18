@@ -68,10 +68,18 @@ extension RuleKit {
                         }
                         return url
                     case .groupContainer(identifier: let identifier):
+                        // App group containers are an Apple sandbox concept;
+                        // `containerURL(forSecurityApplicationGroupIdentifier:)` does
+                        // not exist on non-Apple platforms. Use `.url(_)` on Linux.
+                        #if canImport(Darwin)
                         guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier) else {
                             throw Error.missingGroupIdentifier
                         }
                         return url
+                        #else
+                        _ = identifier
+                        throw Error.missingGroupIdentifier
+                        #endif
                     case .url(let url):
                         // The store writes a plist on disk, so the location must be a
                         // file-scheme directory URL. (`isFileURL` is true for any
