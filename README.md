@@ -15,7 +15,7 @@ TipKit style API to trigger an arbitrary closure, or a NSNotification based on e
 ## Requirements
 - Swift 6.0+ (Xcode 16+)
 - iOS 14+, iPadOS 14+, tvOS 14+, watchOS 7+, macOS 11+
-- Linux
+- Linux, Android
 
 ## Installation
 
