@@ -216,6 +216,10 @@ public final class RuleKit {
     func removeRule(named name: String) {
         rules.removeAll { $0.trigger.rawValue == name }
     }
+
+    var registeredRuleNames: [String] {
+        rules.map { $0.trigger.rawValue }
+    }
 }
 
 // MARK: Public front
@@ -274,5 +278,18 @@ extension RuleKit {
     /// - Parameter name: The rule's identifier. For notification rules registered without an explicit name, this is the notification's `rawValue`.
     public static func removeRule(named name: String) {
         RuleKit.internal.removeRule(named: name)
+    }
+
+    /// The identifiers of every currently registered rule, in registration order.
+    /// For notification rules registered without an explicit name, the identifier is
+    /// the notification's `rawValue`. Useful for debugging and tests.
+    public static var registeredRuleNames: [String] {
+        RuleKit.internal.registeredRuleNames
+    }
+
+    /// Whether a rule with the given identifier is currently registered.
+    /// - Parameter name: The rule's identifier. For notification rules registered without an explicit name, this is the notification's `rawValue`.
+    public static func isRuleRegistered(named name: String) -> Bool {
+        RuleKit.internal.registeredRuleNames.contains(name)
     }
 }

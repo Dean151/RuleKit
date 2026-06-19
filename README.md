@@ -151,6 +151,17 @@ RuleKit.Event.appStarted.resetDonations()
 await RuleKit.Event.appStarted.reset()
 ```
 
+### Managing rules:
+- `RuleKit.removeRule(named:)`: Unregister a rule so it no longer evaluates or triggers
+- `RuleKit.registeredRuleNames`: The identifiers of every currently registered rule, in registration order
+- `RuleKit.isRuleRegistered(named:)`: Whether a rule with the given identifier is registered
+```swift
+if !RuleKit.isRuleRegistered(named: "requestReviewPrompt") {
+    RuleKit.setRule("requestReviewPrompt", triggering: { /* … */ }) { /* … */ }
+}
+```
+> The identifier is the `name` passed to `setRule`. For notification rules registered without an explicit name, it is the notification's `rawValue`.
+
 ### Available stores:
 - `.applicationDefault`: Will use the default Document folder of your app
 - `.groupContainer(identifier: String)`: Will store your event donations in the shared AppGroup container

@@ -797,4 +797,26 @@ struct RuleKitTests {
 
         #expect(counter.value == 0, "A removed rule must not fire.")
     }
+
+    @Test("Registered rules can be introspected by name")
+    func registeredRulesCanBeIntrospected() {
+        let runID = UUID().uuidString
+        let first = "test.introspect.first.\(runID)"
+        let second = "test.introspect.second.\(runID)"
+
+        #expect(RuleKit.isRuleRegistered(named: first) == false)
+
+        RuleKit.setRule(first, triggering: {}) { .always }
+        RuleKit.setRule(second, triggering: {}) { .always }
+
+        // The suite clears the rule list before each test, so only these two remain.
+        #expect(RuleKit.registeredRuleNames == [first, second], "Names are reported in registration order.")
+        #expect(RuleKit.isRuleRegistered(named: first))
+        #expect(RuleKit.isRuleRegistered(named: second))
+
+        RuleKit.removeRule(named: first)
+
+        #expect(RuleKit.isRuleRegistered(named: first) == false)
+        #expect(RuleKit.registeredRuleNames == [second])
+    }
 }
