@@ -416,6 +416,41 @@ struct RuleKitTests {
         #expect(orCounter.value == 1, "false || fulfilled must fire.")
     }
 
+    @Test("event(_:atLeast:) is fulfilled only once the donation count is reached")
+    func eventAtLeastRuleTriggers() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.atleast.event.\(runID)")
+
+        let counter = FireCounter()
+        RuleKit.setRule("test.atleast.rule.\(runID)", triggering: { counter.increment() }) {
+            .event(event, atLeast: 2)
+        }
+
+        await event.donate()
+        #expect(counter.value == 0, "One donation does not reach the threshold of two.")
+
+        await event.donate()
+        #expect(counter.value == 1, "The second donation reaches the threshold and fires.")
+    }
+
+    @Test("Donations expose the time elapsed since the first and last donation")
+    func donationsExposeTimeSinceFirstAndLast() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.timesince.event.\(runID)")
+
+        let empty = await event.donations
+        #expect(empty.timeSinceFirst == nil)
+        #expect(empty.timeSinceLast == nil)
+
+        await event.donate()
+
+        let donations = await event.donations
+        #expect(donations.timeSinceFirst != nil)
+        #expect(donations.timeSinceLast != nil)
+        // Time elapsed since a donation just made is non-negative.
+        #expect((donations.timeSinceLast ?? -1) >= 0)
+    }
+
     @Test("A frequency throttle fires exactly once under concurrent donations")
     func concurrentDonationsRespectTriggerFrequency() async {
         // Unique event + rule name so a previous run's persisted `lastTrigger`

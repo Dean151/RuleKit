@@ -123,6 +123,12 @@ extension Rule where Self == EventRule {
     public static func event(_ event: RuleKit.Event, condition: @escaping @Sendable (RuleKit.DonatedEvent) async -> Bool) -> Rule {
         EventRule(event: event, condition: condition)
     }
+
+    /// A rule fulfilled once `event` has been donated at least `count` times since
+    /// its last reset. Shorthand for `.event(event) { $0.donations.count >= count }`.
+    public static func event(_ event: RuleKit.Event, atLeast count: Int) -> Rule {
+        EventRule(event: event) { $0.donations.count >= count }
+    }
 }
 
 // MARK: OneOf rule

@@ -58,5 +58,15 @@ extension RuleKit.Event {
         public let first: Donation?
         /// The last donation made since last reset
         public let last: Donation?
+
+        /// The time elapsed since the ``first`` donation, or `nil` if there are no donations.
+        public var timeSinceFirst: TimeInterval? {
+            first.map { Date().timeIntervalSince($0.date) }
+        }
+
+        /// The time elapsed since the ``last`` donation, or `nil` if there are no donations.
+        public var timeSinceLast: TimeInterval? {
+            last.map { Date().timeIntervalSince($0.date) }
+        }
     }
 }

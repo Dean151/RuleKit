@@ -139,6 +139,12 @@ await RuleKit.Event.appStarted.reset()
 ### Event.Donations properties available in the condition closure:
 - `count`: the number of times an event have been donated
 - `first` and `last`: the first and last retrieved donation (date + version)
+- `timeSinceFirst` and `timeSinceLast`: the time elapsed since the first and last donation, or `nil` when there are no donations
+
+For the common "donated at least N times" check, use the `.event(_:atLeast:)` shorthand instead of writing the closure by hand:
+```swift
+.event(.appStarted, atLeast: 3) // equivalent to: .event(.appStarted) { $0.donations.count >= 3 }
+```
 
 ## Contribute
 You are encouraged to contribute to this repository, by opening issues, or pull requests for bug fixes, improvement requests, or support.
