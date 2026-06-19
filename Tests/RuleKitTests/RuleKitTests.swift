@@ -92,11 +92,11 @@ actor FailingStore: RuleStore {
 
     func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) throws {}
 
-    func isThrottled(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+    func isThrottled(for trigger: any Trigger, notBefore frequency: TriggerFrequencyOption.Frequency?) throws -> Bool {
         false
     }
 
-    func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+    func claimTrigger(for trigger: any Trigger, notBefore frequency: TriggerFrequencyOption.Frequency?) throws -> Bool {
         if trigger.rawValue == failingTriggerName {
             throw InjectedError()
         }
@@ -122,16 +122,16 @@ actor SpyStore: RuleStore {
 
     func persist(_ donations: RuleKit.Event.Donations, for event: RuleKit.Event) throws {}
 
-    func isThrottled(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
-        guard component != nil else {
+    func isThrottled(for trigger: any Trigger, notBefore frequency: TriggerFrequencyOption.Frequency?) throws -> Bool {
+        guard frequency != nil else {
             return false
         }
         return claimedTriggers.contains(trigger.rawValue)
     }
 
-    func claimTrigger(for trigger: any Trigger, notBefore component: Calendar.Component?) throws -> Bool {
+    func claimTrigger(for trigger: any Trigger, notBefore frequency: TriggerFrequencyOption.Frequency?) throws -> Bool {
         claimCount += 1
-        if component != nil, claimedTriggers.contains(trigger.rawValue) {
+        if frequency != nil, claimedTriggers.contains(trigger.rawValue) {
             return false
         }
         claimedTriggers.insert(trigger.rawValue)
@@ -398,6 +398,30 @@ struct RuleKitTests {
             counter.value == 1,
             "Expected exactly one fire under a daily throttle regardless of concurrency."
         )
+    }
+
+    @Test("A custom .every frequency maps to its component and count")
+    func customFrequencyMapsToComponentAndCount() {
+        // The throttle window is computed as
+        // `date(byAdding: frequency.component, value: frequency.count, to: lastTrigger)`,
+        // so `.every(_, count:)` must surface the requested component and count while
+        // the fixed cases keep a count of 1.
+        let custom = TriggerFrequencyOption.Frequency.every(.day, count: 7)
+        #expect(custom.component == .day)
+        #expect(custom.count == 7)
+
+        let fixed: [(TriggerFrequencyOption.Frequency, Calendar.Component)] = [
+            (.hourly, .hour),
+            (.daily, .day),
+            (.weekly, .weekOfYear),
+            (.monthly, .month),
+            (.quarterly, .quarter),
+            (.yearly, .year),
+        ]
+        for (frequency, component) in fixed {
+            #expect(frequency.component == component)
+            #expect(frequency.count == 1, "Fixed frequencies advance the window by one component.")
+        }
     }
 
     @Test("A file-scheme directory URL is accepted as a store location")

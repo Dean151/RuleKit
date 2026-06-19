@@ -73,7 +73,7 @@ public final class RuleKit {
                     guard await rule.isFulfilled else {
                         return
                     }
-                    let throttle = rule.firstOption(ofType: TriggerFrequencyOption.self)?.frequency.component
+                    let throttle = rule.firstOption(ofType: TriggerFrequencyOption.self)?.frequency
                     guard let delay = rule.firstOption(ofType: DelayOption.self) else {
                         // No delay: claim and fire within the donation's structured
                         // task group, so the donation reflects an immediate trigger.
@@ -103,7 +103,7 @@ public final class RuleKit {
 
     /// Spawns a detached task that waits out `delay` and then claims and fires the
     /// trigger. The task is tracked in `pendingTriggers` and removes itself when done.
-    private func scheduleDelayedTrigger(rule: any Rule, trigger: any Trigger, delay: DelayOption, throttle: Calendar.Component?, store: any RuleStore) {
+    private func scheduleDelayedTrigger(rule: any Rule, trigger: any Trigger, delay: DelayOption, throttle: TriggerFrequencyOption.Frequency?, store: any RuleStore) {
         let id = UUID()
         let logger = self.logger
         let task = Task.detached(priority: .utility) { [weak self] in
@@ -151,7 +151,7 @@ public final class RuleKit {
     /// option the trigger fires on that queue; otherwise it fires on the main actor
     /// (which, unlike `DispatchQueue.main`, is serviced by the concurrency runtime on
     /// every platform, so it does not rely on a running main run loop on Linux).
-    private static func claimAndFire(rule: any Rule, trigger: any Trigger, throttle: Calendar.Component?, store: any RuleStore, logger: Logger) async {
+    private static func claimAndFire(rule: any Rule, trigger: any Trigger, throttle: TriggerFrequencyOption.Frequency?, store: any RuleStore, logger: Logger) async {
         // Atomically claim the trigger: this records the fire and enforces any
         // frequency throttle in a single step, so concurrent donations cannot race
         // between checking the throttle and recording the fire and thus both fire.

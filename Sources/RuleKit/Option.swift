@@ -49,6 +49,14 @@ public struct TriggerFrequencyOption: RuleKitOption {
         case monthly
         case quarterly
         case yearly
+        case every(Calendar.Component, count: Int)
+
+        var count: Int {
+            if case let .every(_, count) = self {
+                return count
+            }
+            return 1
+        }
 
         var component: Calendar.Component {
             switch self {
@@ -64,6 +72,8 @@ public struct TriggerFrequencyOption: RuleKitOption {
                 return .quarter
             case .yearly:
                 return .year
+            case let .every(component, _):
+                return component
             }
         }
     }
