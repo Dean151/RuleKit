@@ -451,6 +451,29 @@ struct RuleKitTests {
         #expect((donations.timeSinceLast ?? -1) >= 0)
     }
 
+    @Test("The ! operator and .not negate a rule")
+    func notOperatorNegatesRule() async {
+        let runID = UUID().uuidString
+        // An unrelated donation drives evaluation of the condition-only rules below.
+        let event = RuleKit.Event(rawValue: "test.not.event.\(runID)")
+
+        // !(fulfilled) must not fire.
+        let negatedTrueCounter = FireCounter()
+        RuleKit.setRule("test.not.true.\(runID)", triggering: { negatedTrueCounter.increment() }) {
+            !(.condition { true })
+        }
+        // .not(unfulfilled) must fire.
+        let negatedFalseCounter = FireCounter()
+        RuleKit.setRule("test.not.false.\(runID)", triggering: { negatedFalseCounter.increment() }) {
+            .not(.condition { false })
+        }
+
+        await event.donate()
+
+        #expect(negatedTrueCounter.value == 0, "!(true) must not fire.")
+        #expect(negatedFalseCounter.value == 1, "!(false) must fire.")
+    }
+
     @Test("A frequency throttle fires exactly once under concurrent donations")
     func concurrentDonationsRespectTriggerFrequency() async {
         // Unique event + rule name so a previous run's persisted `lastTrigger`

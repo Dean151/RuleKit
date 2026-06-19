@@ -197,6 +197,28 @@ extension Rule where Self == AllOfRule {
     }
 }
 
+// MARK: Not rule
+
+public struct NotRule: Rule {
+    let rule: any Rule
+
+    public var isFulfilled: Bool {
+        get async {
+            await !rule.isFulfilled
+        }
+    }
+
+    public init(rule: any Rule) {
+        self.rule = rule
+    }
+}
+
+extension Rule where Self == NotRule {
+    public static func not(_ rule: any Rule) -> Rule {
+        NotRule(rule: rule)
+    }
+}
+
 // MARK: Composition operators
 
 /// Composes two rules into an ``AllOfRule``: the result is fulfilled only when both
@@ -209,6 +231,12 @@ public func && (lhs: any Rule, rhs: any Rule) -> any Rule {
 /// operand is. A convenience for `.anyOf([lhs, rhs])`.
 public func || (lhs: any Rule, rhs: any Rule) -> any Rule {
     AnyOfRule(rules: [lhs, rhs])
+}
+
+/// Negates a rule into a ``NotRule``: the result is fulfilled exactly when the
+/// operand is not. A convenience for `.not(rule)`.
+public prefix func ! (rule: any Rule) -> any Rule {
+    NotRule(rule: rule)
 }
 
 // MARK: Rule with options
