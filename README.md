@@ -81,9 +81,7 @@ struct ContentView: View {
 ```
 - Register your business rules that should trigger your closure, or your notification
 ```swift
-RuleKit.setRule(
-    triggering: .requestReviewPrompt, 
-    options: [.triggerFrequency(.monthly)], 
+RuleKit.setRule(triggering: .requestReviewPrompt, options: .triggerFrequency(.monthly)) {
     .allOf([
         .event(.promptAttempt) {
             $0.donations.last?.appVersion != .current
@@ -102,8 +100,9 @@ RuleKit.setRule(
             ])
         ])
     ])
-)
+}
 ```
+> Options are variadic, and the ruleset is a trailing closure — so a single option no longer needs to be wrapped in an array. The array form (`options: [.triggerFrequency(.monthly)], .allOf([...])`) is still available.
 - Donate those events at proper places in your app
 ```swift
 // Asynchronously

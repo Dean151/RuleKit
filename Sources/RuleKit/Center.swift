@@ -238,6 +238,17 @@ extension RuleKit {
         RuleKit.internal.register(rule: rule, trigger: trigger)
     }
 
+    /// A variant of ``setRule(_:triggering:options:_:)`` that takes its options as a
+    /// variadic list and its ruleset as a trailing closure, so a single option no
+    /// longer needs to be wrapped in an array.
+    /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Defaults to `notification.rawValue`. Registering a new rule with an existing name replaces the previous one (and logs a warning); use `removeRule(named:)` to unregister.
+    /// - Parameter notification: A notification to trigger when the rules are fulfilled.
+    /// - Parameter options: Some facultative options to attach to the rule set
+    /// - Parameter rule: The ruleset that need to be fulfilled to trigger the notification
+    public static func setRule(_ name: String? = nil, triggering notification: Notification.Name, options: any RuleKitOption..., rule: () -> Rule) {
+        setRule(name, triggering: notification, options: options, rule())
+    }
+
     /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Registering a new rule with an existing name replaces the previous one (and logs a warning); use `removeRule(named:)` to unregister.
     /// - Parameter callback: A closure callback to trigger when the rules are fulfilled.
     /// - Parameter options: Some facultative options to attach to the rule set
@@ -246,6 +257,17 @@ extension RuleKit {
         let trigger = CallbackTrigger(rawValue: name, callback: callback)
         let rule = options.isEmpty ? rule : RuleWithOptions(options: options, trigger: trigger, rule: rule)
         RuleKit.internal.register(rule: rule, trigger: trigger)
+    }
+
+    /// A variant of ``setRule(_:triggering:options:_:)`` that takes its options as a
+    /// variadic list and its ruleset as a trailing closure, so a single option no
+    /// longer needs to be wrapped in an array.
+    /// - Parameter name: A unique identifier used to record this rule's fires (and to enforce its frequency throttle). Registering a new rule with an existing name replaces the previous one (and logs a warning); use `removeRule(named:)` to unregister.
+    /// - Parameter callback: A closure callback to trigger when the rules are fulfilled.
+    /// - Parameter options: Some facultative options to attach to the rule set
+    /// - Parameter rule: The ruleset that need to be fulfilled to trigger the closure
+    public static func setRule(_ name: String, triggering callback: @escaping @Sendable () -> Void, options: any RuleKitOption..., rule: () -> Rule) {
+        setRule(name, triggering: callback, options: options, rule())
     }
 
     /// Unregister a previously set rule so it no longer evaluates or triggers.

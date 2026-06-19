@@ -367,6 +367,28 @@ struct RuleKitTests {
         #expect(count == 1)
     }
 
+    @Test("A rule set with variadic options and a trailing closure triggers")
+    func variadicOptionsRuleTriggers() async {
+        // Unique rule name so a previous run's persisted `lastTrigger` (which
+        // `reset()` does not clear) cannot throttle this monthly rule.
+        let runID = UUID().uuidString
+        let ruleName = "test.variadic.rule.\(runID)"
+        let event = RuleKit.Event(rawValue: "test.variadic.event.\(runID)")
+
+        let counter = FireCounter()
+        RuleKit.setRule(ruleName, triggering: {
+            counter.increment()
+        }, options: .triggerFrequency(.monthly)) {
+            .event(event) {
+                $0.donations.count > 0
+            }
+        }
+
+        await event.donate()
+
+        #expect(counter.value == 1)
+    }
+
     @Test("A frequency throttle fires exactly once under concurrent donations")
     func concurrentDonationsRespectTriggerFrequency() async {
         // Unique event + rule name so a previous run's persisted `lastTrigger`
