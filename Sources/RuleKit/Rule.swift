@@ -129,6 +129,28 @@ extension Rule where Self == EventRule {
     public static func event(_ event: RuleKit.Event, atLeast count: Int) -> Rule {
         EventRule(event: event) { $0.donations.count >= count }
     }
+
+    /// A rule fulfilled when `event`'s last donation happened within the last `interval`
+    /// seconds. Not fulfilled when the event has never been donated.
+    public static func event(_ event: RuleKit.Event, donatedWithin interval: TimeInterval) -> Rule {
+        EventRule(event: event) { donated in
+            guard let elapsed = donated.donations.timeSinceLast else {
+                return false
+            }
+            return elapsed <= interval
+        }
+    }
+
+    /// A rule fulfilled when `event` has not been donated for at least `interval`
+    /// seconds (a cooldown). Also fulfilled when the event has never been donated.
+    public static func event(_ event: RuleKit.Event, notDonatedFor interval: TimeInterval) -> Rule {
+        EventRule(event: event) { donated in
+            guard let elapsed = donated.donations.timeSinceLast else {
+                return true
+            }
+            return elapsed >= interval
+        }
+    }
 }
 
 // MARK: OneOf rule

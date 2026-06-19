@@ -127,6 +127,14 @@ For a quorum (k-of-n), use `.atLeast(_:of:)` — fulfilled when at least `count`
 ```
 
 `.always` and `.never` are constant rules (always/never fulfilled) — handy as placeholders, to disable a trigger, or for conditional composition (e.g. `isBeta ? someRule : .never`).
+
+For recency and cooldown conditions, `.event(_:donatedWithin:)` and `.event(_:notDonatedFor:)` take a duration in seconds:
+```swift
+// Fired within the last hour:
+.event(.promptAttempt, donatedWithin: 60 * 60)
+// Not prompted for at least a week (also true if never prompted):
+.event(.promptAttempt, notDonatedFor: 7 * 24 * 60 * 60)
+```
 - Donate those events at proper places in your app
 ```swift
 // Asynchronously

@@ -474,6 +474,41 @@ struct RuleKitTests {
         #expect(negatedFalseCounter.value == 1, "!(false) must fire.")
     }
 
+    @Test("event(_:donatedWithin:) and event(_:notDonatedFor:) reflect recency")
+    func donationRecencyRulesTrigger() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.recency.event.\(runID)")
+        // A never-donated event, used to exercise the "no donation" branches.
+        let neverEvent = RuleKit.Event(rawValue: "test.recency.never.\(runID)")
+
+        // The event is donated during evaluation, so its last donation is "just now":
+        // within a 60s window, and not yet idle for 60s.
+        let withinCounter = FireCounter()
+        RuleKit.setRule("test.recency.within.\(runID)", triggering: { withinCounter.increment() }) {
+            .event(event, donatedWithin: 60)
+        }
+        let cooldownCounter = FireCounter()
+        RuleKit.setRule("test.recency.cooldown.\(runID)", triggering: { cooldownCounter.increment() }) {
+            .event(event, notDonatedFor: 60)
+        }
+        // A never-donated event is not "donated within", but is "not donated for".
+        let neverWithinCounter = FireCounter()
+        RuleKit.setRule("test.recency.neverwithin.\(runID)", triggering: { neverWithinCounter.increment() }) {
+            .event(neverEvent, donatedWithin: 60)
+        }
+        let neverCooldownCounter = FireCounter()
+        RuleKit.setRule("test.recency.nevercooldown.\(runID)", triggering: { neverCooldownCounter.increment() }) {
+            .event(neverEvent, notDonatedFor: 60)
+        }
+
+        await event.donate()
+
+        #expect(withinCounter.value == 1, "A just-donated event is within the recent window.")
+        #expect(cooldownCounter.value == 0, "A just-donated event has not been idle for the cooldown.")
+        #expect(neverWithinCounter.value == 0, "A never-donated event is not donated within any window.")
+        #expect(neverCooldownCounter.value == 1, "A never-donated event satisfies any cooldown.")
+    }
+
     @Test("The .always rule fires on any donation")
     func alwaysRuleTriggers() async {
         let runID = UUID().uuidString
