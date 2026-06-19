@@ -218,6 +218,11 @@ extension Rule where Self == ConstantRule {
     public static var always: Rule {
         ConstantRule(fulfilled: true)
     }
+
+    /// A rule that is never fulfilled. Useful to disable a trigger or for conditional composition.
+    public static var never: Rule {
+        ConstantRule(fulfilled: false)
+    }
 }
 
 // MARK: NoneOf rule

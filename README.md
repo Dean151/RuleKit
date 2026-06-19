@@ -126,7 +126,7 @@ For a quorum (k-of-n), use `.atLeast(_:of:)` — fulfilled when at least `count`
 ])
 ```
 
-`.always` is a constant rule that is always fulfilled — handy as a placeholder or for conditional composition (e.g. `isBeta ? someRule : .always`).
+`.always` and `.never` are constant rules (always/never fulfilled) — handy as placeholders, to disable a trigger, or for conditional composition (e.g. `isBeta ? someRule : .never`).
 - Donate those events at proper places in your app
 ```swift
 // Asynchronously

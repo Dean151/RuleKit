@@ -489,6 +489,21 @@ struct RuleKitTests {
         #expect(counter.value == 1, ".always is fulfilled whenever rules are evaluated.")
     }
 
+    @Test("The .never rule never fires")
+    func neverRuleDoesNotTrigger() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.never.event.\(runID)")
+
+        let counter = FireCounter()
+        RuleKit.setRule("test.never.\(runID)", triggering: { counter.increment() }) {
+            .never
+        }
+
+        await event.donate()
+
+        #expect(counter.value == 0, ".never is never fulfilled.")
+    }
+
     @Test("noneOf(_:) is fulfilled only when none of its rules pass")
     func noneOfRuleTriggers() async {
         let runID = UUID().uuidString
