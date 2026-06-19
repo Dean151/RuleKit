@@ -3,13 +3,15 @@
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FDean151%2FRuleKit%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/Dean151/RuleKit)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FDean151%2FRuleKit%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/Dean151/RuleKit)
 
-TipKit style API to trigger an arbitrary closure, or a NSNotification based on events and condition.
+A TipKit-style API to trigger an arbitrary closure, or an `NSNotification`, based on events and conditions.
+
+You *donate* events from meaningful places in your app, describe the *rules* that must hold, and RuleKit fires your *trigger* the moment they do.
 
 ## Usecases
-- To open your Paywall from time to time
-- To prompt your user to add an App Store review
-- Watching and sending achievements to Game Center with GameKit
-- Show a shortcut available for an action that is often performed by a user
+- Open your paywall from time to time
+- Prompt your user to leave an App Store review
+- Watch for and send achievements to Game Center with GameKit
+- Surface a shortcut for an action the user performs often
 - ...
 
 ## Requirements
@@ -19,8 +21,8 @@ TipKit style API to trigger an arbitrary closure, or a NSNotification based on e
 
 ## Installation
 
-Install using Swift Package Manager
-```
+Install using Swift Package Manager:
+```swift
 dependencies: [
     .package(url: "https://github.com/Dean151/RuleKit.git", from: "0.5.0"),
 ],
@@ -31,163 +33,46 @@ targets: [
 ]
 ```
 
-And import it:
+## Quick start
+
 ```swift
 import RuleKit
-```
 
-
-## How to use?
-
-RuleKit is about one thing: invoking a closure, or trigger a NSNotification when a set of rules are fulfilled!
-
-- Configure RuleKit when your application starts
-```swift
+// 1. Configure once, at launch.
 try RuleKit.configure(storeLocation: .applicationDefault)
-```
-- Create "events" to trigger RuleKit
-```swift
+
+// 2. Declare your events.
 extension RuleKit.Event {
-    public static let appStarted: Self = "appStarted"
-    public static let entityCreated: Self = "itemCreated"
-    public static let promptAttempt: Self = "promptAttempt"
+    static let appStarted: Self = "appStarted"
+    static let entityCreated: Self = "entityCreated"
 }
-```
-- Create a custom notification to be triggered by RuleKit
-```swift
-import Foundation
 
-extension Notification.Name {
-    static let requestReviewPrompt = Notification.Name("RequestReviewPrompt")
+// 3. Register a rule and what it triggers.
+RuleKit.setRule("askForReview", triggering: { requestReview() }, options: .triggerFrequency(.monthly)) {
+    .event(.appStarted, atLeast: 3) && .event(.entityCreated, atLeast: 5)
 }
-```
-- Implement your logic of when your custom notification is triggered
-```swift
-import StoreKit
-import SwiftUI
 
-struct ContentView: View {
-    @Environment(\.requestReview)
-    private var requestReview
-
-    var body: View {
-        Text("Hello, World!")
-            .onReceive(NotificationCenter.default.publisher(for: .requestReviewPrompt)) { _ in
-                requestReview()
-                RuleKit.Event.promptAttempt.sendDonation()
-            }
-    }
-}
-```
-- Register your business rules that should trigger your closure, or your notification
-```swift
-RuleKit.setRule(triggering: .requestReviewPrompt, options: .triggerFrequency(.monthly)) {
-    .allOf([
-        .event(.promptAttempt) {
-            $0.donations.last?.appVersion != .current
-        },
-        .anyOf([
-            .event(.entityCreated) { _ in
-                MyStore.shared.entityCount >= 5
-            },
-            .allOf([
-                .event(.appStarted) {
-                    $0.donations.count >= 3
-                },
-                .event(.entityCreated) { _ in
-                    MyStore.shared.entityCount >= 3
-                }
-            ])
-        ])
-    ])
-}
-```
-> Options are variadic, and the ruleset is a trailing closure — so a single option no longer needs to be wrapped in an array. The array form (`options: [.triggerFrequency(.monthly)], .allOf([...])`) is still available.
-
-Rules can also be composed with the `&&`, `||` and `!` operators, as shorthand for `.allOf`, `.anyOf` and `.not`:
-```swift
-.event(.appStarted) { $0.donations.count >= 3 } && !(.condition { MyStore.shared.isPremium })
-```
-
-`.noneOf([...])` is fulfilled when none of its rules pass (the complement of `.anyOf`):
-```swift
-.noneOf([
-    .event(.subscribed) { $0.donations.count > 0 },
-    .event(.paywallDismissed) { $0.donations.count > 0 },
-])
-```
-
-For a quorum (k-of-n), use `.atLeast(_:of:)` — fulfilled when at least `count` of the rules pass:
-```swift
-.atLeast(2, of: [
-    .event(.featureAUsed) { $0.donations.count > 0 },
-    .event(.featureBUsed) { $0.donations.count > 0 },
-    .event(.featureCUsed) { $0.donations.count > 0 },
-])
-```
-
-`.always` and `.never` are constant rules (always/never fulfilled) — handy as placeholders, to disable a trigger, or for conditional composition (e.g. `isBeta ? someRule : .never`).
-
-For recency and cooldown conditions, `.event(_:donatedWithin:)` and `.event(_:notDonatedFor:)` take a duration in seconds:
-```swift
-// Fired within the last hour:
-.event(.promptAttempt, donatedWithin: 60 * 60)
-// Not prompted for at least a week (also true if never prompted):
-.event(.promptAttempt, notDonatedFor: 7 * 24 * 60 * 60)
-```
-- Donate those events at proper places in your app
-```swift
-// Asynchronously
+// 4. Donate events where they happen.
 RuleKit.Event.appStarted.sendDonation()
-// Synchronously
 await RuleKit.Event.entityCreated.donate()
 ```
-- As soon as an event is donated, if all the rules are fulfilled, the notification will be sent
-- If required, reset an event donations to zero:
-```swift
-// Asynchronously
-RuleKit.Event.appStarted.resetDonations()
-// Synchronously
-await RuleKit.Event.appStarted.reset()
-```
 
-### Managing rules:
-- `RuleKit.removeRule(named:)`: Unregister a rule so it no longer evaluates or triggers
-- `RuleKit.registeredRuleNames`: The identifiers of every currently registered rule, in registration order
-- `RuleKit.isRuleRegistered(named:)`: Whether a rule with the given identifier is registered
-```swift
-if !RuleKit.isRuleRegistered(named: "requestReviewPrompt") {
-    RuleKit.setRule("requestReviewPrompt", triggering: { /* … */ }) { /* … */ }
-}
-```
-> The identifier is the `name` passed to `setRule`. For notification rules registered without an explicit name, it is the notification's `rawValue`.
+As soon as an event is donated, RuleKit re-evaluates every rule and fires the triggers whose rules now pass.
 
-### Available stores:
-- `.applicationDefault`: Will use the default Document folder of your app
-- `.groupContainer(identifier: String)`: Will store your event donations in the shared AppGroup container
-- `.url(URL)`: Provide your own URL. It should be a directory URL.
+Rules can trigger a closure (above) or post a `Notification` — handy when the side effect belongs to your UI layer. They compose with `.allOf` / `.anyOf` / `.noneOf` / `.atLeast` / `.not` (and the `&&`, `||`, `!` operators), and conditions can read each event's donation history (count, dates, app version, recency, cooldowns).
 
-> On Linux, prefer `.url(_)`: AppGroup containers don't exist (`.groupContainer` throws) and `.applicationDefault` resolves to `~/Documents`, which may not exist on a server. Note also that `AppVersion.current` is `nil` on Linux (there is no `Info.plist`), so version-based conditions always compare against `nil`.
+## Documentation
 
-### Available options:
-- `.triggerFrequency(_)`: Throttle down notification donation or using given period
-- `.dispatchQueue(_)`: Choose the DispatchQueue you want your notification to be sent from. Defaults to the main actor.
-- `.delay(for: _)` and `.delay(nanoseconds: _)`: Delay the trigger of a specific notification after it was fulfilled.
+The full guide lives in the DocC documentation, hosted on the [Swift Package Index](https://swiftpackageindex.com/Dean151/RuleKit/documentation/rulekit):
 
-### Event.Donations properties available in the condition closure:
-- `count`: the number of times an event have been donated
-- `first` and `last`: the first and last retrieved donation (date + version)
-- `timeSinceFirst` and `timeSinceLast`: the time elapsed since the first and last donation, or `nil` when there are no donations
-- `firstSeenInCurrentVersion`: whether the first donation was made in the current app version (`false` when there are no donations or no app version is available, e.g. on Linux)
+- **Getting Started** — configuring the store, declaring events, registering closure- and notification-based rules, donating and resetting events, managing rules, and the available options (`triggerFrequency`, `dispatchQueue`, `delay`).
+- **Composing Rules** — the full rule vocabulary: event conditions and shorthands, combinators, operators, constants, and the donation properties available inside a condition.
 
-For the common "donated at least N times" check, use the `.event(_:atLeast:)` shorthand instead of writing the closure by hand:
-```swift
-.event(.appStarted, atLeast: 3) // equivalent to: .event(.appStarted) { $0.donations.count >= 3 }
-```
+You can also browse it locally in Xcode via **Product ▸ Build Documentation**.
 
 ## Contribute
-You are encouraged to contribute to this repository, by opening issues, or pull requests for bug fixes, improvement requests, or support.
+You are encouraged to contribute to this repository by opening issues or pull requests for bug fixes, improvement requests, or support.
 Suggestions for contributing:
--  Improving documentation
--  Adding some automated tests 😜
--  Adding some new rules, options or properties for more use cases
+- Improving documentation
+- Adding more tests
+- Adding new rules, options, or properties for more use cases
