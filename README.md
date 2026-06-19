@@ -108,6 +108,15 @@ Rules can also be composed with the `&&`, `||` and `!` operators, as shorthand f
 ```swift
 .event(.appStarted) { $0.donations.count >= 3 } && !(.condition { MyStore.shared.isPremium })
 ```
+
+For a quorum (k-of-n), use `.atLeast(_:of:)` — fulfilled when at least `count` of the rules pass:
+```swift
+.atLeast(2, of: [
+    .event(.featureAUsed) { $0.donations.count > 0 },
+    .event(.featureBUsed) { $0.donations.count > 0 },
+    .event(.featureCUsed) { $0.donations.count > 0 },
+])
+```
 - Donate those events at proper places in your app
 ```swift
 // Asynchronously

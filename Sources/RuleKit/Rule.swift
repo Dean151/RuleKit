@@ -197,6 +197,51 @@ extension Rule where Self == AllOfRule {
     }
 }
 
+// MARK: AtLeast rule
+
+public struct AtLeastRule: Rule {
+    let count: Int
+    let rules: [any Rule]
+
+    public var isFulfilled: Bool {
+        get async {
+            guard count > 0 else {
+                return true
+            }
+            var fulfilled = 0
+            for rule in rules where await rule.isFulfilled {
+                fulfilled += 1
+                if fulfilled >= count {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    public init(count: Int, rules: [any Rule]) {
+        self.count = count
+        self.rules = rules
+    }
+
+    public init(count: Int, @RuleBuilder rules: () -> [any Rule]) {
+        self.count = count
+        self.rules = rules()
+    }
+}
+
+extension Rule where Self == AtLeastRule {
+    /// A rule fulfilled when at least `count` of the given `rules` are fulfilled (a quorum / k-of-n).
+    public static func atLeast(_ count: Int, of rules: [any Rule]) -> Rule {
+        AtLeastRule(count: count, rules: rules)
+    }
+
+    /// A rule fulfilled when at least `count` of the given `rules` are fulfilled (a quorum / k-of-n).
+    public static func atLeast(_ count: Int, @RuleBuilder of rules: () -> [any Rule]) -> Rule {
+        AtLeastRule(count: count, rules: rules)
+    }
+}
+
 // MARK: Not rule
 
 public struct NotRule: Rule {

@@ -474,6 +474,27 @@ struct RuleKitTests {
         #expect(negatedFalseCounter.value == 1, "!(false) must fire.")
     }
 
+    @Test("atLeast(_:of:) is fulfilled once a quorum of rules pass")
+    func atLeastQuorumRuleTriggers() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.atleastof.event.\(runID)")
+
+        // Two of three rules pass: a quorum of 2 fires, a quorum of 3 does not.
+        let quorumMetCounter = FireCounter()
+        RuleKit.setRule("test.atleastof.met.\(runID)", triggering: { quorumMetCounter.increment() }) {
+            .atLeast(2, of: [.condition { true }, .condition { true }, .condition { false }])
+        }
+        let quorumUnmetCounter = FireCounter()
+        RuleKit.setRule("test.atleastof.unmet.\(runID)", triggering: { quorumUnmetCounter.increment() }) {
+            .atLeast(3, of: [.condition { true }, .condition { true }, .condition { false }])
+        }
+
+        await event.donate()
+
+        #expect(quorumMetCounter.value == 1, "2 of 3 passing meets a quorum of 2.")
+        #expect(quorumUnmetCounter.value == 0, "2 of 3 passing does not meet a quorum of 3.")
+    }
+
     @Test("A frequency throttle fires exactly once under concurrent donations")
     func concurrentDonationsRespectTriggerFrequency() async {
         // Unique event + rule name so a previous run's persisted `lastTrigger`
