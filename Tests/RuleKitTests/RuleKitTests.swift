@@ -474,6 +474,26 @@ struct RuleKitTests {
         #expect(negatedFalseCounter.value == 1, "!(false) must fire.")
     }
 
+    @Test("Donations report whether the first donation was in the current version")
+    func donationsReportFirstSeenInCurrentVersion() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.firstseen.event.\(runID)")
+
+        let empty = await event.donations
+        #expect(empty.firstSeenInCurrentVersion == false, "No donations means not first-seen in any version.")
+
+        await event.donate()
+
+        let donations = await event.donations
+        if RuleKit.AppVersion.current != nil {
+            // The donation was just stamped with the current version.
+            #expect(donations.firstSeenInCurrentVersion, "A donation made in this version is first-seen here.")
+        } else {
+            // No bundle version available (e.g. Linux): the property is always false.
+            #expect(donations.firstSeenInCurrentVersion == false)
+        }
+    }
+
     @Test("event(_:donatedWithin:) and event(_:notDonatedFor:) reflect recency")
     func donationRecencyRulesTrigger() async {
         let runID = UUID().uuidString

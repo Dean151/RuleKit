@@ -68,5 +68,15 @@ extension RuleKit.Event {
         public var timeSinceLast: TimeInterval? {
             last.map { Date().timeIntervalSince($0.date) }
         }
+
+        /// Whether the ``first`` donation was made in the current app version.
+        /// `false` when there are no donations, or when the app version is
+        /// unavailable (e.g. on Linux, where there is no `Info.plist`).
+        public var firstSeenInCurrentVersion: Bool {
+            guard let firstVersion = first?.appVersion, let current = RuleKit.AppVersion.current else {
+                return false
+            }
+            return firstVersion == current
+        }
     }
 }

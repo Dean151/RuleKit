@@ -167,6 +167,7 @@ await RuleKit.Event.appStarted.reset()
 - `count`: the number of times an event have been donated
 - `first` and `last`: the first and last retrieved donation (date + version)
 - `timeSinceFirst` and `timeSinceLast`: the time elapsed since the first and last donation, or `nil` when there are no donations
+- `firstSeenInCurrentVersion`: whether the first donation was made in the current app version (`false` when there are no donations or no app version is available, e.g. on Linux)
 
 For the common "donated at least N times" check, use the `.event(_:atLeast:)` shorthand instead of writing the closure by hand:
 ```swift
