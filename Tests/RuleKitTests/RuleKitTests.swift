@@ -474,6 +474,26 @@ struct RuleKitTests {
         #expect(negatedFalseCounter.value == 1, "!(false) must fire.")
     }
 
+    @Test("noneOf(_:) is fulfilled only when none of its rules pass")
+    func noneOfRuleTriggers() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.noneof.event.\(runID)")
+
+        let allFalseCounter = FireCounter()
+        RuleKit.setRule("test.noneof.allfalse.\(runID)", triggering: { allFalseCounter.increment() }) {
+            .noneOf([.condition { false }, .condition { false }])
+        }
+        let someTrueCounter = FireCounter()
+        RuleKit.setRule("test.noneof.sometrue.\(runID)", triggering: { someTrueCounter.increment() }) {
+            .noneOf([.condition { false }, .condition { true }])
+        }
+
+        await event.donate()
+
+        #expect(allFalseCounter.value == 1, "noneOf fires when every rule is unfulfilled.")
+        #expect(someTrueCounter.value == 0, "noneOf does not fire when any rule is fulfilled.")
+    }
+
     @Test("atLeast(_:of:) is fulfilled once a quorum of rules pass")
     func atLeastQuorumRuleTriggers() async {
         let runID = UUID().uuidString

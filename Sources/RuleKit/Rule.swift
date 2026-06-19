@@ -197,6 +197,41 @@ extension Rule where Self == AllOfRule {
     }
 }
 
+// MARK: NoneOf rule
+
+public struct NoneOfRule: Rule {
+    let rules: [any Rule]
+
+    public var isFulfilled: Bool {
+        get async {
+            for rule in rules where await rule.isFulfilled {
+                return false
+            }
+            return true
+        }
+    }
+
+    public init(rules: [any Rule]) {
+        self.rules = rules
+    }
+
+    public init(@RuleBuilder rules: () -> [any Rule]) {
+        self.rules = rules()
+    }
+}
+
+extension Rule where Self == NoneOfRule {
+    /// A rule fulfilled when none of the given `rules` are fulfilled (the complement of `anyOf`).
+    public static func noneOf(_ rules: [any Rule]) -> Rule {
+        NoneOfRule(rules: rules)
+    }
+
+    /// A rule fulfilled when none of the given `rules` are fulfilled (the complement of `anyOf`).
+    public static func noneOf(@RuleBuilder _ rules: () -> [any Rule]) -> Rule {
+        NoneOfRule(rules: rules)
+    }
+}
+
 // MARK: AtLeast rule
 
 public struct AtLeastRule: Rule {

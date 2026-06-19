@@ -109,6 +109,14 @@ Rules can also be composed with the `&&`, `||` and `!` operators, as shorthand f
 .event(.appStarted) { $0.donations.count >= 3 } && !(.condition { MyStore.shared.isPremium })
 ```
 
+`.noneOf([...])` is fulfilled when none of its rules pass (the complement of `.anyOf`):
+```swift
+.noneOf([
+    .event(.subscribed) { $0.donations.count > 0 },
+    .event(.paywallDismissed) { $0.donations.count > 0 },
+])
+```
+
 For a quorum (k-of-n), use `.atLeast(_:of:)` — fulfilled when at least `count` of the rules pass:
 ```swift
 .atLeast(2, of: [
