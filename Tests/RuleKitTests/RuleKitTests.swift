@@ -474,6 +474,21 @@ struct RuleKitTests {
         #expect(negatedFalseCounter.value == 1, "!(false) must fire.")
     }
 
+    @Test("The .always rule fires on any donation")
+    func alwaysRuleTriggers() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.always.event.\(runID)")
+
+        let counter = FireCounter()
+        RuleKit.setRule("test.always.\(runID)", triggering: { counter.increment() }) {
+            .always
+        }
+
+        await event.donate()
+
+        #expect(counter.value == 1, ".always is fulfilled whenever rules are evaluated.")
+    }
+
     @Test("noneOf(_:) is fulfilled only when none of its rules pass")
     func noneOfRuleTriggers() async {
         let runID = UUID().uuidString

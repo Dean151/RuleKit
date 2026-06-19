@@ -197,6 +197,29 @@ extension Rule where Self == AllOfRule {
     }
 }
 
+// MARK: Constant rule
+
+public struct ConstantRule: Rule {
+    let fulfilled: Bool
+
+    public var isFulfilled: Bool {
+        get async {
+            fulfilled
+        }
+    }
+
+    public init(fulfilled: Bool) {
+        self.fulfilled = fulfilled
+    }
+}
+
+extension Rule where Self == ConstantRule {
+    /// A rule that is always fulfilled. Useful as a placeholder or for conditional composition.
+    public static var always: Rule {
+        ConstantRule(fulfilled: true)
+    }
+}
+
 // MARK: NoneOf rule
 
 public struct NoneOfRule: Rule {

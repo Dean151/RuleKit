@@ -125,6 +125,8 @@ For a quorum (k-of-n), use `.atLeast(_:of:)` — fulfilled when at least `count`
     .event(.featureCUsed) { $0.donations.count > 0 },
 ])
 ```
+
+`.always` is a constant rule that is always fulfilled — handy as a placeholder or for conditional composition (e.g. `isBeta ? someRule : .always`).
 - Donate those events at proper places in your app
 ```swift
 // Asynchronously
