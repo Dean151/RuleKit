@@ -103,6 +103,11 @@ RuleKit.setRule(triggering: .requestReviewPrompt, options: .triggerFrequency(.mo
 }
 ```
 > Options are variadic, and the ruleset is a trailing closure — so a single option no longer needs to be wrapped in an array. The array form (`options: [.triggerFrequency(.monthly)], .allOf([...])`) is still available.
+
+Two rules can also be composed with the `&&` and `||` operators, as shorthand for `.allOf` and `.anyOf`:
+```swift
+.event(.appStarted) { $0.donations.count >= 3 } && .condition { MyStore.shared.entityCount >= 5 }
+```
 - Donate those events at proper places in your app
 ```swift
 // Asynchronously

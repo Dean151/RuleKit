@@ -389,6 +389,33 @@ struct RuleKitTests {
         #expect(counter.value == 1)
     }
 
+    @Test("The && and || operators compose rules")
+    func compositionOperatorsComposeRules() async {
+        let runID = UUID().uuidString
+        let event = RuleKit.Event(rawValue: "test.operators.event.\(runID)")
+
+        // && is fulfilled only when both operands are.
+        let andCounter = FireCounter()
+        RuleKit.setRule("test.operators.and.true.\(runID)", triggering: { andCounter.increment() }) {
+            .condition { true } && .event(event) { $0.donations.count > 0 }
+        }
+        let andFalseCounter = FireCounter()
+        RuleKit.setRule("test.operators.and.false.\(runID)", triggering: { andFalseCounter.increment() }) {
+            .condition { false } && .event(event) { $0.donations.count > 0 }
+        }
+        // || is fulfilled when either operand is.
+        let orCounter = FireCounter()
+        RuleKit.setRule("test.operators.or.\(runID)", triggering: { orCounter.increment() }) {
+            .condition { false } || .event(event) { $0.donations.count > 0 }
+        }
+
+        await event.donate()
+
+        #expect(andCounter.value == 1, "true && fulfilled must fire.")
+        #expect(andFalseCounter.value == 0, "false && fulfilled must not fire.")
+        #expect(orCounter.value == 1, "false || fulfilled must fire.")
+    }
+
     @Test("A frequency throttle fires exactly once under concurrent donations")
     func concurrentDonationsRespectTriggerFrequency() async {
         // Unique event + rule name so a previous run's persisted `lastTrigger`

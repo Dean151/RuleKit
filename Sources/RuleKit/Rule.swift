@@ -191,6 +191,20 @@ extension Rule where Self == AllOfRule {
     }
 }
 
+// MARK: Composition operators
+
+/// Composes two rules into an ``AllOfRule``: the result is fulfilled only when both
+/// operands are. A convenience for `.allOf([lhs, rhs])`.
+public func && (lhs: any Rule, rhs: any Rule) -> any Rule {
+    AllOfRule(rules: [lhs, rhs])
+}
+
+/// Composes two rules into an ``AnyOfRule``: the result is fulfilled when either
+/// operand is. A convenience for `.anyOf([lhs, rhs])`.
+public func || (lhs: any Rule, rhs: any Rule) -> any Rule {
+    AnyOfRule(rules: [lhs, rhs])
+}
+
 // MARK: Rule with options
 
 struct RuleWithOptions: Rule {
